@@ -46,7 +46,7 @@ const ConfirmDeleteModal = ({ name, onConfirm, onCancel }) => {
 // =========================
 // Institution Table
 // =========================
-const InstitutionTable = ({ institutions, onView, onEdit, onDelete }) => {
+const InstitutionTable = ({ institutions, onEdit, onDelete }) => {
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
 
   const handleDeleteClick = (inst) => {
@@ -103,13 +103,10 @@ const InstitutionTable = ({ institutions, onView, onEdit, onDelete }) => {
                 <td className="px-3 py-2.5 text-xs text-gray-400">{inst.owner?.email}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex gap-1.5">
-                    <button onClick={() => onView(inst)}
-                      className="px-2.5 py-1 text-xs font-medium rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50">
-                      View
-                    </button>
+                    
                     <button onClick={() => onEdit(inst)}
                       className="px-2.5 py-1 text-xs font-medium rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100">
-                      Edit
+                      View
                     </button>
                     <button onClick={() => handleDeleteClick(inst)}
                       className="px-2.5 py-1 text-xs font-medium rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100">
