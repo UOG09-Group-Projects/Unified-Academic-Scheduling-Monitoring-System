@@ -2,7 +2,6 @@ from django.db import models
 import uuid
 import hashlib
 
-
 class User(models.Model):
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
@@ -47,6 +46,7 @@ class Institution(models.Model):
 
     class Meta:
         db_table = 'institutions'
+
 
     def __str__(self):
         return self.name

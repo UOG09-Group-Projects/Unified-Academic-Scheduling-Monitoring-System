@@ -1,3 +1,4 @@
+
 """
 URL configuration for config project.
 
@@ -16,6 +17,7 @@ Including another URLconf
 """
 # project/urls.py
 
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -30,6 +32,7 @@ urlpatterns = [
 
     # merged feature
     path('api/', include('course.urls')),
+    path('api/', include('educators.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
