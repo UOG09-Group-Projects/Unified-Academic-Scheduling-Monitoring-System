@@ -18,19 +18,18 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-<<<<<<< HEAD
 from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # existing apps
     path('api/institutions/', include('institutions.urls')),
     path('api/', include('batches.urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-=======
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('courses.urls')),
+    # merged feature
+    path('api/', include('course.urls')),
 ]
->>>>>>> courses
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

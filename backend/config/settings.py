@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'managers',
     'educators',
     'batches',
+    'course',
 ]
 
 MIDDLEWARE = [
