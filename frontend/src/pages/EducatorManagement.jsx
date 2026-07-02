@@ -2,49 +2,18 @@ import { useState, useRef, useEffect } from "react";
 
 const API = "http://127.0.0.1:8000/api";
 
-const C = {
-  bg: "#F0F3FA",
-  white: "#FFFFFF",
-  primary: "#395886",
-  secondary: "#638ECB",
-  accent: "#8AAEE0",
-  border: "#D5DEEF",
-  highlight: "#B1C9EF",
-};
-
-const inp = {
-  width: "100%",
-  padding: "8px 12px",
-  border: `1px solid ${C.border}`,
-  borderRadius: "6px",
-  fontSize: "14px",
-  outline: "none",
-  background: C.bg,
-  color: "#333",
-  boxSizing: "border-box",
-};
-
-const lbl = {
-  fontSize: "13px",
-  color: C.primary,
-  fontWeight: 500,
-  display: "block",
-  marginBottom: "4px",
-};
-
 export default function EducatorManagement() {
   const [educators, setEducators] = useState([]);
   const [institutions, setInstitutions] = useState([]);
   const [form, setForm] = useState({ edu_id: "", name: "", institution: "", email: "", phone: "" });
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [showUser, setShowUser] = useState(false);
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef();
 
-  // Load educators and institutions on mount
   useEffect(() => {
     fetchEducators();
     fetchInstitutions();
@@ -65,12 +34,17 @@ export default function EducatorManagement() {
       const res = await fetch(`${API}/institutions/`);
       const data = await res.json();
       setInstitutions(data);
-    } catch {
-      // institutions API may not be ready yet — silently ignore
-    }
+    } catch {}
   };
 
-  const sorted = [...educators].sort((a, b) => a.edu_id > b.edu_id ? -1 : 1);
+  const filtered = [...educators]
+    .sort((a, b) => (a.edu_id > b.edu_id ? -1 : 1))
+    .filter(
+      (e) =>
+        e.name.toLowerCase().includes(search.toLowerCase()) ||
+        e.edu_id.toLowerCase().includes(search.toLowerCase())
+    );
+
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
   const handlePhotoChange = (e) => {
@@ -116,14 +90,8 @@ export default function EducatorManagement() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API}/educators/`, {
-        method: "POST",
-        body: buildFormData(),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(JSON.stringify(err));
-      }
+      const res = await fetch(`${API}/educators/`, { method: "POST", body: buildFormData() });
+      if (!res.ok) throw new Error(JSON.stringify(await res.json()));
       await fetchEducators();
       reset();
     } catch (e) {
@@ -138,14 +106,8 @@ export default function EducatorManagement() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API}/educators/${selected.id}/`, {
-        method: "PATCH",
-        body: buildFormData(),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(JSON.stringify(err));
-      }
+      const res = await fetch(`${API}/educators/${selected.id}/`, { method: "PATCH", body: buildFormData() });
+      if (!res.ok) throw new Error(JSON.stringify(await res.json()));
       await fetchEducators();
       reset();
     } catch (e) {
@@ -180,33 +142,219 @@ export default function EducatorManagement() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
+  const styles = {
+    page: {
+      background: "#f9f9f9",
+      minHeight: "100vh",
+      padding: "2rem 3rem",
+      fontFamily: "'Segoe UI', sans-serif",
+      color: "#222",
+    },
+    pageTitle: {
+      fontSize: "22px",
+      fontWeight: "700",
+      marginBottom: "0.5rem",
+      color: "#111",
+    },
+    divider: {
+      border: "none",
+      borderTop: "1px solid #ddd",
+      marginBottom: "1.5rem",
+    },
+    card: {
+      background: "#fff",
+      border: "1px solid #e0e0e0",
+      borderRadius: "10px",
+      padding: "1.5rem 2rem",
+      marginBottom: "1.5rem",
+    },
+    sectionLabel: {
+      fontSize: "11px",
+      fontWeight: "600",
+      color: "#999",
+      letterSpacing: "1px",
+      textTransform: "uppercase",
+      marginBottom: "1.2rem",
+    },
+    fieldLabel: {
+      display: "block",
+      fontSize: "14px",
+      fontWeight: "600",
+      color: "#222",
+      marginBottom: "6px",
+    },
+    input: {
+      width: "100%",
+      padding: "10px 14px",
+      border: "1px solid #ddd",
+      borderRadius: "6px",
+      fontSize: "14px",
+      color: "#333",
+      background: "#fff",
+      boxSizing: "border-box",
+      outline: "none",
+    },
+    inputReadonly: {
+      width: "100%",
+      padding: "10px 14px",
+      border: "1px solid #ddd",
+      borderRadius: "6px",
+      fontSize: "14px",
+      color: "#888",
+      background: "#f5f5f5",
+      boxSizing: "border-box",
+      outline: "none",
+      cursor: "not-allowed",
+    },
+    select: {
+      width: "100%",
+      padding: "10px 14px",
+      border: "1px solid #ddd",
+      borderRadius: "6px",
+      fontSize: "14px",
+      color: "#333",
+      background: "#fff",
+      boxSizing: "border-box",
+      outline: "none",
+      cursor: "pointer",
+    },
+    fieldGroup: {
+      marginBottom: "1.2rem",
+    },
+    row2: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "1.2rem",
+      marginBottom: "1.2rem",
+    },
+    row3: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gap: "1.2rem",
+      marginBottom: "1.2rem",
+    },
+    hrSection: {
+      border: "none",
+      borderTop: "1px solid #eee",
+      margin: "1.2rem 0",
+    },
+    btnInsert: {
+      padding: "9px 28px",
+      fontSize: "14px",
+      fontWeight: "600",
+      background: "#2563eb",
+      color: "#fff",
+      border: "none",
+      borderRadius: "7px",
+      cursor: "pointer",
+    },
+    btnUpdate: {
+      padding: "9px 28px",
+      fontSize: "14px",
+      fontWeight: "600",
+      background: "#fff",
+      color: "#b45309",
+      border: "1.5px solid #f0c040",
+      borderRadius: "7px",
+      cursor: "pointer",
+    },
+    btnDelete: {
+      padding: "9px 28px",
+      fontSize: "14px",
+      fontWeight: "600",
+      background: "#fff",
+      color: "#dc2626",
+      border: "1.5px solid #fca5a5",
+      borderRadius: "7px",
+      cursor: "pointer",
+    },
+    photoCircle: {
+      width: "60px",
+      height: "60px",
+      borderRadius: "50%",
+      border: "2px dashed #bbb",
+      background: "#f5f5f5",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      overflow: "hidden",
+      flexShrink: 0,
+    },
+    tableCard: {
+      background: "#fff",
+      border: "1px solid #e0e0e0",
+      borderRadius: "10px",
+      overflow: "hidden",
+    },
+    tableHeader: {
+      padding: "1rem 1.5rem 0.5rem",
+    },
+    th: {
+      padding: "10px 16px",
+      textAlign: "left",
+      fontSize: "11px",
+      fontWeight: "600",
+      color: "#999",
+      letterSpacing: "1px",
+      textTransform: "uppercase",
+      background: "#fafafa",
+      borderBottom: "1px solid #eee",
+    },
+    td: {
+      padding: "12px 16px",
+      fontSize: "14px",
+      color: "#333",
+      borderBottom: "1px solid #f0f0f0",
+    },
+    viewBtn: {
+      padding: "4px 14px",
+      fontSize: "12px",
+      border: "1px solid #ddd",
+      borderRadius: "5px",
+      background: "#f5f5f5",
+      color: "#444",
+      cursor: "pointer",
+      fontWeight: 500,
+    },
+    errorBanner: {
+      margin: "0 0 1rem",
+      padding: "10px 16px",
+      background: "#fef2f2",
+      border: "1px solid #fca5a5",
+      borderRadius: "6px",
+      color: "#dc2626",
+      fontSize: "13px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+  };
+
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", margin: 0, padding: 0, boxSizing: "border-box" }}>
+    <div style={styles.page}>
+      {/* Page Title */}
+      <div style={styles.pageTitle}>Educator Management</div>
+      <hr style={styles.divider} />
 
-      {/* Header */}
-      <div style={{ padding: "1.5rem 2rem 1rem", borderBottom: `2px solid ${C.border}`, background: C.white }}>
-        <h1 style={{ color: C.primary, fontSize: "20px", fontWeight: 600, margin: 0 }}>
-          Educator Management
-        </h1>
-      </div>
-
-      {/* Error banner */}
+      {/* Error */}
       {error && (
-        <div style={{ margin: "1rem 2rem 0", padding: "10px 16px", background: "#fdecea", border: "1px solid #f5c6cb", borderRadius: "6px", color: "#c0392b", fontSize: "13px" }}>
-          {error}
-          <button onClick={() => setError("")} style={{ float: "right", background: "none", border: "none", cursor: "pointer", color: "#c0392b", fontWeight: 700 }}>✕</button>
+        <div style={styles.errorBanner}>
+          <span>{error}</span>
+          <button onClick={() => setError("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontWeight: 700, fontSize: "16px" }}>✕</button>
         </div>
       )}
 
-      {/* Form card */}
-      <div style={{ margin: "1.5rem 2rem 1rem", background: C.white, border: `1px solid ${C.border}`, borderRadius: "10px", padding: "1.5rem" }}>
+      {/* Form Card */}
+      <div style={styles.card}>
+        <div style={styles.sectionLabel}>Educator Management</div>
 
         {/* Edu ID + Name + Photo */}
-        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr auto", gap: "1rem", marginBottom: "1rem", alignItems: "end" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "1.2rem", marginBottom: "1.2rem", alignItems: "end" }}>
           <div>
-            <label style={lbl}>Educator ID</label>
+            <label style={styles.fieldLabel}>Educator ID</label>
             <input
-              style={{ ...inp, background: selected ? "#eee" : C.bg, cursor: selected ? "not-allowed" : "text" }}
+              style={selected ? styles.inputReadonly : styles.input}
               type="text"
               value={form.edu_id}
               onChange={set("edu_id")}
@@ -215,28 +363,26 @@ export default function EducatorManagement() {
             />
           </div>
           <div>
-            <label style={lbl}>Name</label>
-            <input style={inp} type="text" value={form.name} onChange={set("name")} placeholder="Educator full name" />
+            <label style={styles.fieldLabel}>Name</label>
+            <input
+              style={styles.input}
+              type="text"
+              value={form.name}
+              onChange={set("name")}
+              placeholder="Educator full name"
+            />
           </div>
-          {/* Photo upload */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-            <label style={{ ...lbl, textAlign: "center" }}>Photo</label>
-            <div
-              onClick={() => fileRef.current?.click()}
-              style={{
-                width: "64px", height: "64px", borderRadius: "50%",
-                border: `2px dashed ${C.accent}`, background: C.bg,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", overflow: "hidden", flexShrink: 0,
-              }}
-            >
+          {/* Photo */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+            <label style={{ ...styles.fieldLabel, fontSize: "12px", color: "#999" }}>Photo</label>
+            <div style={styles.photoCircle} onClick={() => fileRef.current?.click()}>
               {photoPreview
                 ? <img src={photoPreview} alt="photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: "22px", color: C.accent }}>+</span>
+                : <span style={{ fontSize: "24px", color: "#bbb" }}>+</span>
               }
             </div>
             {photoPreview && (
-              <button onClick={clearPhoto} style={{ fontSize: "11px", color: "#c0392b", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              <button onClick={clearPhoto} style={{ fontSize: "11px", color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                 Remove
               </button>
             )}
@@ -244,95 +390,112 @@ export default function EducatorManagement() {
           </div>
         </div>
 
-        {/* Institution + Email */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+        {/* Search */}
+        <div style={styles.fieldGroup}>
+          <label style={styles.fieldLabel}>Search Educator</label>
+          <input
+            style={styles.input}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or ID..."
+          />
+        </div>
+
+        <hr style={styles.hrSection} />
+        <div style={styles.sectionLabel}>Contact Details</div>
+
+        {/* Email + Phone */}
+        <div style={styles.row2}>
           <div>
-            <label style={lbl}>Institution</label>
-            <select style={inp} value={form.institution} onChange={set("institution")}>
-              <option value="">Select institution</option>
-              {institutions.map((i) => (
-                <option key={i.id} value={i.id}>{i.name}</option>
-              ))}
-            </select>
+            <label style={styles.fieldLabel}>Email</label>
+            <input style={styles.input} type="email" value={form.email} onChange={set("email")} placeholder="email@example.com" />
           </div>
           <div>
-            <label style={lbl}>Email</label>
-            <input style={inp} type="email" value={form.email} onChange={set("email")} placeholder="email@example.com" />
+            <label style={styles.fieldLabel}>Phone</label>
+            <input style={styles.input} type="text" value={form.phone} onChange={set("phone")} placeholder="07X XXXXXXX" />
           </div>
         </div>
 
-        {/* Phone */}
-        <div style={{ marginBottom: "1rem" }}>
-          <label style={lbl}>Phone</label>
-          <input style={{ ...inp, width: "40%" }} type="text" value={form.phone} onChange={set("phone")} placeholder="07X XXXXXXX" />
+        <hr style={styles.hrSection} />
+        <div style={styles.sectionLabel}>Institution Details</div>
+
+        {/* Institution */}
+        <div style={styles.fieldGroup}>
+          <label style={styles.fieldLabel}>Institution</label>
+          <select style={styles.select} value={form.institution} onChange={set("institution")}>
+            <option value="">Select institution...</option>
+            {institutions.map((i) => (
+              <option key={i.id} value={i.id}>{i.name}</option>
+            ))}
+          </select>
         </div>
 
-        {/* User details toggle */}
-        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: "1rem" }}>
-          <button onClick={() => setShowUser(!showUser)} style={{ fontSize: "13px", color: C.secondary, fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-            {showUser ? "▾" : "▸"} User details
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem" }}>
+          <button onClick={handleInsert} disabled={loading} style={{ ...styles.btnInsert, opacity: loading ? 0.7 : 1 }}>
+            {loading ? "..." : "Insert"}
           </button>
-          {showUser && (
-            <div style={{ marginTop: "1rem", padding: "12px", background: C.bg, borderRadius: "6px", fontSize: "13px", color: "#888" }}>
-              User login accounts are managed separately.
-            </div>
+          <button onClick={handleUpdate} disabled={loading} style={{ ...styles.btnUpdate, opacity: loading ? 0.7 : 1 }}>
+            {loading ? "..." : "Update"}
+          </button>
+          <button onClick={handleDelete} disabled={loading} style={{ ...styles.btnDelete, opacity: loading ? 0.7 : 1 }}>
+            {loading ? "..." : "Delete"}
+          </button>
+          {selected && (
+            <button onClick={reset} style={{ padding: "9px 18px", fontSize: "14px", background: "none", border: "1px solid #ddd", borderRadius: "7px", cursor: "pointer", color: "#666" }}>
+              Clear
+            </button>
           )}
         </div>
       </div>
 
-      {/* Buttons */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", padding: "0 2rem", marginBottom: "1rem" }}>
-        <button onClick={handleInsert} disabled={loading} style={{ padding: "8px 22px", fontSize: "13px", fontWeight: 500, background: C.primary, color: "#fff", border: "none", borderRadius: "6px", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
-          {loading ? "..." : "Insert"}
-        </button>
-        <button onClick={handleUpdate} disabled={loading} style={{ padding: "8px 22px", fontSize: "13px", fontWeight: 500, background: C.secondary, color: "#fff", border: "none", borderRadius: "6px", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
-          {loading ? "..." : "Update"}
-        </button>
-        <button onClick={handleDelete} disabled={loading} style={{ padding: "8px 22px", fontSize: "13px", fontWeight: 500, background: "#c0392b", color: "#fff", border: "none", borderRadius: "6px", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
-          {loading ? "..." : "Delete"}
-        </button>
-      </div>
-
-      {/* Table */}
-      <div style={{ background: C.white, borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+      {/* Table Card */}
+      <div style={styles.tableCard}>
+        <div style={styles.tableHeader}>
+          <div style={styles.sectionLabel}>Educator List</div>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
           <thead>
-            <tr style={{ background: C.primary }}>
+            <tr>
               {["Photo", "Edu ID", "Name", "Institution", "Email", "Phone", "Action"].map((h) => (
-                <th key={h} style={{ padding: "10px 16px", textAlign: h === "Action" ? "center" : "left", color: "#fff", fontWeight: 500, fontSize: "12px" }}>{h}</th>
+                <th key={h} style={styles.th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((edu, idx) => (
-              <tr key={edu.edu_id} style={{ borderBottom: `1px solid ${C.border}`, background: idx % 2 === 0 ? C.white : C.bg }}>
-                <td style={{ padding: "8px 16px" }}>
+            {filtered.map((edu) => (
+              <tr key={edu.edu_id} style={{ background: selected?.edu_id === edu.edu_id ? "#eff6ff" : "#fff" }}>
+                <td style={styles.td}>
                   {edu.photo
-                    ? <img src={edu.photo} alt="" style={{ width: "36px", height: "36px", borderRadius: "50%", objectFit: "cover" }} />
-                    : <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: C.highlight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", color: C.primary, fontWeight: 600 }}>
-                        {edu.name.charAt(edu.name.indexOf(" ") + 1) || edu.name.charAt(0)}
+                    ? <img src={edu.photo} alt="" style={{ width: "34px", height: "34px", borderRadius: "50%", objectFit: "cover" }} />
+                    : (
+                      <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "#dbeafe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", color: "#2563eb", fontWeight: 600 }}>
+                        {edu.name.charAt(0)}
                       </div>
+                    )
                   }
                 </td>
-                <td style={{ padding: "10px 16px", color: "#666", fontWeight: 500 }}>{edu.edu_id}</td>
-                <td style={{ padding: "10px 16px", color: "#333", fontWeight: 500 }}>{edu.name}</td>
-                <td style={{ padding: "10px 16px", color: "#555" }}>{edu.institution_name || "-"}</td>
-                <td style={{ padding: "10px 16px", color: "#555" }}>{edu.email}</td>
-                <td style={{ padding: "10px 16px", color: "#555" }}>{edu.phone}</td>
-                <td style={{ padding: "10px 16px", textAlign: "center" }}>
-                  <button onClick={() => handleView(edu)} style={{ padding: "4px 14px", fontSize: "12px", border: `1px solid ${C.accent}`, borderRadius: "4px", background: C.highlight, color: C.primary, cursor: "pointer", fontWeight: 500 }}>
-                    View
-                  </button>
+                <td style={{ ...styles.td, color: "#666" }}>{edu.edu_id}</td>
+                <td style={{ ...styles.td, fontWeight: 500 }}>{edu.name}</td>
+                <td style={{ ...styles.td, color: "#555" }}>{edu.institution_name || "-"}</td>
+                <td style={{ ...styles.td, color: "#555" }}>{edu.email}</td>
+                <td style={{ ...styles.td, color: "#555" }}>{edu.phone}</td>
+                <td style={styles.td}>
+                  <button onClick={() => handleView(edu)} style={styles.viewBtn}>View</button>
                 </td>
               </tr>
             ))}
-            {sorted.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "#aaa" }}>No educators found</td></tr>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: "2.5rem", textAlign: "center", color: "#bbb", fontSize: "14px" }}>
+                  No educators found
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
-
     </div>
   );
 }

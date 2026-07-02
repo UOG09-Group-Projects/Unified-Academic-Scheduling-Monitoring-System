@@ -113,7 +113,8 @@ export default function CoursePage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Course Management</h1>
+        <h1 className="text-xl font-medium text-gray-800 pb-4 mb-5 border-b border-gray-200">Course Management</h1>
+        
 
         <div className="mb-4">
           <input
@@ -125,7 +126,7 @@ export default function CoursePage() {
         </div>
 
         <CourseForm
-          key={selectedCourse?.id ?? 'new'}
+          key={`${selectedCourse?.id ?? 'new'}-${allBatches.length}-${allEducators.length}`}
           selectedCourse={selectedCourse}
           institutions={institutions}
           allBatches={allBatches}

@@ -45,9 +45,7 @@ export default function CourseForm({
   onDelete,
   onClear,
 }) {
-  // Computed once per mount, using the key prop on <CourseForm key={...}> in
-  // the parent to force a remount (and therefore a fresh initializer run)
-  // whenever the user selects a different course. No effect required.
+
   const [form, setForm] = useState(() =>
     buildInitialForm(selectedCourse, allBatches, allEducators)
   );
