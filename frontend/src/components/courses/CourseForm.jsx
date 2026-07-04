@@ -24,6 +24,7 @@ function buildInitialForm(selectedCourse, allBatches, allEducators) {
   const educatorsAssigned = allEducators.filter(e => assignedEducatorIds.includes(e.id));
   const educatorsAvailable = allEducators.filter(e => !assignedEducatorIds.includes(e.id));
 
+
   return {
     institution: selectedCourse.institution,
     name: selectedCourse.name,

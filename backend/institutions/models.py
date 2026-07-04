@@ -3,12 +3,28 @@ import uuid
 import hashlib
 
 class User(models.Model):
+    ROLE_CHOICES = [
+        ('SUPER_ADMIN', 'Super Admin'),
+        ('OWNER',       'Owner'),
+        ('MANAGER',     'Manager'),
+        ('EDUCATOR',    'Educator'),
+        ('STUDENT',     'Student'),
+        ('PARENT',      'Parent'),
+    ]
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
     hashed_password = models.CharField(max_length=256)
     salt = models.CharField(max_length=64)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='OWNER'   # default keeps all existing rows valid
+    )
+    is_active             = models.BooleanField(default=False)  # False until email verified
+    is_email_verified     = models.BooleanField(default=False)
+    email_verify_token    = models.CharField(max_length=64, null=True, blank=True)
+    password_reset_token  = models.CharField(max_length=64, null=True, blank=True)
+    password_reset_expiry = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'institution_users'
@@ -50,3 +66,29 @@ class Institution(models.Model):
 
     def __str__(self):
         return self.name
+
+class ActivityLog(models.Model):
+    ACTION_CHOICES = [
+        ('CREATE', 'Created'),
+        ('UPDATE', 'Updated'),
+        ('DELETE', 'Deleted'),
+    ]
+    MODULE_CHOICES = [
+        ('INSTITUTION', 'Institution'),
+        ('COURSE',      'Course'),
+        ('EDUCATOR',    'Educator'),
+        ('BATCH',       'Batch'),
+        ('STUDENT',     'Student'),
+    ]
+
+    module      = models.CharField(max_length=20, choices=MODULE_CHOICES)
+    action      = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    description = models.CharField(max_length=255)
+    timestamp   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'activity_logs'
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"[{self.module}] {self.action} — {self.description}"

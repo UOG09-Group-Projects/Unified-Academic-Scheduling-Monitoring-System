@@ -1,16 +1,13 @@
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Institution
 from .serializers import InstitutionListSerializer
 from .services import InstitutionService
+from .jwt_utils import ProtectedView 
 
 
-class InstitutionListCreateView(APIView):
-    """
-    GET  /api/institutions/      → list all (non-deleted)
-    POST /api/institutions/      → create new
-    """
+class InstitutionListCreateView(ProtectedView):  # ← changed
+    required_roles = ['SUPER_ADMIN', 'OWNER']    # ← added
 
     def get(self, request):
         institutions = Institution.objects.filter(is_deleted=False).select_related('owner')
@@ -28,12 +25,8 @@ class InstitutionListCreateView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class InstitutionDetailView(APIView):
-    """
-    GET    /api/institutions/{id}/   → get one
-    PUT    /api/institutions/{id}/   → update
-    DELETE /api/institutions/{id}/   → soft delete
-    """
+class InstitutionDetailView(ProtectedView):      # ← changed
+    required_roles = ['OWNER','SUPER_ADMIN',]    # ← added
 
     def get_object(self, pk):
         try:

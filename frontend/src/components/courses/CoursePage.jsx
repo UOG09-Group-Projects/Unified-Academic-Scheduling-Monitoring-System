@@ -68,24 +68,30 @@ export default function CoursePage() {
   // Reusable refetch for after insert/update/delete (a normal event-driven
   // call, not inside an effect, so this is unaffected by the lint rule)
   const refetchCourses = async () => {
-    try {
-      const data = await courseService.list(search);
-      setCourses(data);
-    } catch {
-      showToast('Failed to refresh course list.', 'error');
-    }
-  };
+  try {
+    const data = await courseService.list(search);
+    console.log("Courses after refresh:", data);
+    setCourses(data);
+  } catch {
+    showToast("Failed to refresh course list.", "error");
+  }
+};
 
   const handleInsert = async (payload) => {
-    try {
-      await courseService.create(payload);
-      showToast('Course created successfully!');
-      await refetchCourses();
-      setSelectedCourse(null);
-    } catch (err) {
-      showToast(err.response?.data?.error || 'Insert failed.', 'error');
-    }
-  };
+  try {
+    console.log("Payload:", payload);
+
+    const res = await courseService.create(payload);
+    console.log("Create response:", res);
+
+    showToast("Course created successfully!");
+    await refetchCourses();
+    setSelectedCourse(null);
+  } catch (err) {
+    console.log(err.response?.data);
+    showToast(err.response?.data?.error || "Insert failed.", "error");
+  }
+};
 
   const handleUpdate = async (id, payload) => {
     if (!id) return showToast('Select a course to update.', 'error');
@@ -111,8 +117,8 @@ export default function CoursePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto p-6">
         <h1 className="text-xl font-medium text-gray-800 pb-4 mb-5 border-b border-gray-200">Course Management</h1>
         
 

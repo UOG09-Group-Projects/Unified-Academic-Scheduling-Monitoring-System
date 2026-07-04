@@ -1,3 +1,5 @@
+from institutions.models import ActivityLog
+
 from .models import Course, CourseBatch, Allocation
 from django.db import transaction
 
@@ -28,6 +30,11 @@ class CourseService:
         for educator_id in educator_ids:
             Allocation.objects.create(course=course, educator_id=educator_id)
 
+        ActivityLog.objects.create(
+        module='COURSE', action='CREATE',
+        description=f"Course '{course.name} ({course.code})' was created."
+    )
+
         return course
 
     @staticmethod
@@ -55,6 +62,10 @@ class CourseService:
         for educator_id in educator_ids:
             Allocation.objects.create(course=course, educator_id=educator_id)
 
+        ActivityLog.objects.create(
+        module='COURSE', action='UPDATE',
+        description=f"Course '{course.name} ({course.code})' was updated."
+    )
         return course
 
     @staticmethod
@@ -72,5 +83,10 @@ class CourseService:
         # Soft delete course
         course.is_deleted = True
         course.save()
+
+        ActivityLog.objects.create(
+            module='COURSE', action='DELETE',
+            description=f"Course '{course.name}' was deleted."
+        )
 
         return True

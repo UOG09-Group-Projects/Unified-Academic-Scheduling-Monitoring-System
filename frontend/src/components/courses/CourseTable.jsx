@@ -1,4 +1,4 @@
-
+ 
 export default function CourseTable({ courses, onEdit, onView }) {
   return (
     <div className="bg-white rounded-lg shadow mt-6 overflow-x-auto">

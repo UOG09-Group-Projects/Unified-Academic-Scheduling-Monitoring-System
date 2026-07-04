@@ -22,6 +22,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from auth import dashboard_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,10 +30,18 @@ urlpatterns = [
     # existing apps
     path('api/institutions/', include('institutions.urls')),
     path('api/', include('batches.urls')),
-
+    path('api/auth/', include('auth.urls')),
     # merged feature
     path('api/', include('course.urls')),
     path('api/', include('educators.urls')),
+    path('api/', include('students.urls')),
+
+    path('api/dashboard/manager/', dashboard_views.manager_dashboard),
+    path('api/dashboard/super-admin/', dashboard_views.super_admin_dashboard),
+    path('api/dashboard/educator/', dashboard_views.educator_dashboard),
+    path('api/dashboard/student/', dashboard_views.student_dashboard),
+    path('api/dashboard/parent/', dashboard_views.parent_dashboard),
+    
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

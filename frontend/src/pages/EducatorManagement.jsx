@@ -143,13 +143,6 @@ export default function EducatorManagement() {
   };
 
   const styles = {
-    page: {
-      background: "#f9f9f9",
-      minHeight: "100vh",
-      padding: "2rem 3rem",
-      fontFamily: "'Segoe UI', sans-serif",
-      color: "#222",
-    },
     pageTitle: {
       fontSize: "22px",
       fontWeight: "700",
@@ -332,7 +325,8 @@ export default function EducatorManagement() {
   };
 
   return (
-    <div style={styles.page}>
+    <div style={{ background: "#f9f9f9", minHeight: "100vh" }}>
+      <div className="max-w-4xl mx-auto p-6">
       {/* Page Title */}
       <div style={styles.pageTitle}>Educator Management</div>
       <hr style={styles.divider} />
@@ -496,6 +490,7 @@ export default function EducatorManagement() {
           </tbody>
         </table>
       </div>
-    </div>
+        </div>
+  </div>
   );
 }

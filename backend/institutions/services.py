@@ -1,37 +1,43 @@
 from django.db import transaction
 from .models import Institution, User
 from .serializers import InstitutionCreateSerializer, InstitutionUpdateSerializer
-
+from .models import ActivityLog
 
 class InstitutionService:
 
     @staticmethod
     @transaction.atomic
     def create_institution(data: dict, logo=None) -> Institution:
-        """
-        Workflow:
-        1. Validate input
-        2. Create User (owner) with hashed password
-        3. Create Institution with owner FK
-        """
+
         serializer = InstitutionCreateSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         validated = serializer.validated_data
 
-        # Step 1: Create the owner user
-        user = User()
-        user.username = validated['username']
-        user.email = validated['email']
-        user.set_password(validated['password'])  # hashes password + salt
+        # check duplicates (important)
+        if User.objects.filter(email=validated['email']).exists():
+            raise ValueError("Email already exists")
+
+        if User.objects.filter(username=validated['username']).exists():
+            raise ValueError("Username already exists")
+
+        user = User.objects.create(
+            username=validated['username'],
+            email=validated['email']
+        )
+        user.set_password(validated['password'])
         user.save()
 
-        # Step 2: Create the institution
-        institution = Institution()
-        institution.name = validated['name']
-        institution.owner = user
-        if logo:
-            institution.logo = logo
-        institution.save()
+        institution = Institution.objects.create(
+            name=validated['name'],
+            owner=user,
+            logo=logo
+        )
+
+        ActivityLog.objects.create(
+            module='INSTITUTION',
+            action='CREATE',
+            description=f"Institution '{institution.name}' was created."
+        )
 
         return institution
 
@@ -60,6 +66,10 @@ class InstitutionService:
 
         owner.save()
         institution.save()
+        ActivityLog.objects.create(
+            module='INSTITUTION', action='UPDATE',
+            description=f"Institution '{institution.name}' was updated."
+        )
         return institution
 
     @staticmethod
@@ -84,3 +94,7 @@ class InstitutionService:
         owner = institution.owner
         institution.delete()
         owner.delete()
+        ActivityLog.objects.create(
+        module='INSTITUTION', action='DELETE',
+        description=f"Institution '{institution.name}' was deleted."
+    )

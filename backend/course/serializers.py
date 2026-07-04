@@ -18,7 +18,9 @@ class AllocationSerializer(serializers.ModelSerializer):
         fields = ['id', 'educator', 'educator_name']
 
     def get_educator_name(self, obj):
-        return f"{obj.educator.first_name} {obj.educator.last_name}"
+      if not obj.educator:
+        return None
+      return obj.educator.name
 
 
 class CourseSerializer(serializers.ModelSerializer):

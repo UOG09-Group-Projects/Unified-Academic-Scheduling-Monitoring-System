@@ -26,7 +26,7 @@ const lookupService = {
     // need to know about first_name/last_name fields.
     return res.data.map((e) => ({
       id: e.id,
-      name: `${e.first_name} ${e.last_name}`,
+      name: e.name,
     }));
   },
 };
