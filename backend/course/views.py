@@ -16,8 +16,7 @@ class CourseListView(APIView):
         courses = Course.objects.filter(is_deleted=False).select_related('institution')
 
         if search:
-            courses = courses.filter(name__icontains=search) | \
-                      courses.filter(code__icontains=search)
+            courses = courses.filter(name__icontains=search) | courses.filter(code__icontains=search)
 
         if institution_id:
             courses = courses.filter(institution_id=institution_id)
@@ -27,7 +26,7 @@ class CourseListView(APIView):
 
     def post(self, request):
         try:
-            course = CourseService.create_course(request.data)
+            course = CourseService.create_course(request.data, request.user)
             serializer = CourseSerializer(course)
             return Response(
                 {'message': 'Course created successfully.', 'data': serializer.data},
@@ -35,7 +34,6 @@ class CourseListView(APIView):
             )
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 class CourseDetailView(APIView):
 
@@ -49,7 +47,7 @@ class CourseDetailView(APIView):
 
     def put(self, request, pk):
         try:
-            course = CourseService.update_course(pk, request.data)
+            course = CourseService.update_course(pk, request.data, request.user)
             serializer = CourseSerializer(course)
             return Response(
                 {'message': 'Course updated successfully.', 'data': serializer.data}

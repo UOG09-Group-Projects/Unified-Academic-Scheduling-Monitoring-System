@@ -180,23 +180,23 @@ console.log("Batches received:", batches);
         <p className="text-xs text-slate-400 mt-2">{form.guardian_ids.length} guardian(s) selected</p>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex gap-3 mt-5 pt-4 border-t border-gray-200">
         <button onClick={() => onInsert(buildPayload())}
-          className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
+          className="px-4 py-2 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600">
           Insert
         </button>
         <button onClick={() => onUpdate(selectedStudent?.id, buildPayload())}
           disabled={!selectedStudent}
-          className="rounded-full bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
+          className="px-4 py-2 text-sm font-medium bg-amber-100 text-amber-800 border border-amber-200 rounded-md hover:bg-amber-200">
           Update
         </button>
         <button onClick={() => setShowDeleteDialog(true)}
           disabled={!selectedStudent}
-          className="rounded-full bg-rose-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50">
+          className="px-4 py-2 text-sm font-medium bg-red-50 text-red-700 border border-red-200 rounded-md hover:bg-red-100">
           Delete
         </button>
         <button onClick={onClear}
-          className="rounded-full bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-200">
+          className="px-4 py-2 text-sm font-medium bg-slate-100 text-slate-900 border border-slate-200 rounded-md hover:bg-slate-200">
           Clear
         </button>
       </div>

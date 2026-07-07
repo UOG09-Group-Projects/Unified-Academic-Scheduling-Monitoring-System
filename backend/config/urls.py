@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/', include('course.urls')),
     path('api/', include('educators.urls')),
     path('api/', include('students.urls')),
+    path('api/', include('managers.urls')),
 
     path('api/dashboard/manager/', dashboard_views.manager_dashboard),
     path('api/dashboard/super-admin/', dashboard_views.super_admin_dashboard),

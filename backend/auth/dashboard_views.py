@@ -203,7 +203,7 @@ def educator_dashboard(request):
         )[:10]
     )
     for a in recent_activity:
-        a['timestamp'] = a['timestamp'].strftime('%d %b %Y, %I:%M %p')
+        a['timestamp'] = a['timestamp'].strftime('%d %b %Y, %I:%M %p')  
 
     return JsonResponse({
         'summary': {
@@ -281,8 +281,9 @@ def student_dashboard(request):
     })
 
 
-@require_http_methods(['GET'])
+
 @dashboard_auth(required_roles=['PARENT','SUPER_ADMIN','OWNER'])
+@require_http_methods(['GET'])
 def parent_dashboard(request):
     """
     GET /api/dashboard/parent/

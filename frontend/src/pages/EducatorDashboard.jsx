@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-
+import {
+  BookOpen,
+  GraduationCap
+} from 'lucide-react';
 import StatCard from "../components/StatCard";
 import dashboardService from "../services/dashboardService";
 
@@ -36,8 +39,8 @@ export default function EducatorDashboard() {
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Educator Dashboard</h1>
 
         <div className="grid grid-cols-2 gap-4 mb-8">
-          <StatCard label="My Courses" value={data.summary.total_courses} color="blue"  icon="📚" />
-          <StatCard label="My Batches" value={data.summary.total_batches} color="green" icon="🎓" />
+          <StatCard label="My Courses" value={data.summary.total_courses} color="blue"  icon={BookOpen} />
+          <StatCard label="My Batches" value={data.summary.total_batches} color="green" icon={GraduationCap} />
         </div>
 
         <div className="bg-white rounded-xl shadow overflow-hidden">

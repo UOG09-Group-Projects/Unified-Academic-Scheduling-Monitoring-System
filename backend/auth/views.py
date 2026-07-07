@@ -38,26 +38,34 @@ def login_view(request):
     if not user.check_password(password):
         return JsonResponse({'error': 'Invalid email or password.'}, status=401)
 
-    # Block login if email not verified
-    if not user.is_email_verified:
-        return JsonResponse(
-            {'error': 'Please verify your email before logging in. Check your inbox.'},
-            status=403
-        )
 
     if not user.is_active:
         return JsonResponse({'error': 'Your account has been deactivated.'}, status=403)
 
     tokens = generate_tokens(user)
-    return JsonResponse({
-        'tokens': tokens,
+
+    response = JsonResponse({
         'user': {
-            'id':       user.id,
+            'id': user.id,
             'username': user.username,
-            'email':    user.email,
-            'role':     user.role,
-        }
+            'email': user.email,
+            'role': user.role,
+        },
+        'access': tokens['access'],
+        'refresh': tokens['refresh']
     })
+
+    response.set_cookie(
+        key='access_token',
+        value=tokens['access'],
+        httponly=True,
+        secure=False,   # True in production (HTTPS)
+        samesite='Lax',
+        max_age=60 * 60 * 8,
+        path='/',
+    )
+
+    return response
 
 
 @csrf_exempt
@@ -228,7 +236,7 @@ def reset_password_view(request):
 
 @csrf_exempt
 @require_http_methods(['POST'])
-@jwt_required(roles=['SUPER_ADMIN', 'OWNER', 'MANAGER'])
+@jwt_required(roles=['SUPER_ADMIN', 'OWNER', 'MANAGER','STUDENT','PARENT'])
 def create_user_view(request):
     """
     POST /api/auth/create-user/
@@ -251,7 +259,7 @@ def create_user_view(request):
             status=400
         )
 
-    valid_roles = ['MANAGER', 'EDUCATOR', 'STUDENT', 'PARENT']
+    valid_roles = ['MANAGER', 'EDUCATOR', 'STUDENT', 'PARENT','OWNER']
     if role not in valid_roles:
         return JsonResponse(
             {'error': f"Role must be one of: {', '.join(valid_roles)}"},
@@ -266,6 +274,7 @@ def create_user_view(request):
 
     user = User(username=username, email=email, role=role)
     user.set_password(password)
+    user.is_active = True
     user.save()
 
     # Send verification email
@@ -282,5 +291,14 @@ def create_user_view(request):
             'username': user.username,
             'email':    user.email,
             'role':     user.role,
+            'is_active': user.is_active,
         }
     }, status=201)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def logout_view(request):
+    response = JsonResponse({'message': 'Logged out successfully.'})
+    response.delete_cookie('access_token', path='/')
+    return response

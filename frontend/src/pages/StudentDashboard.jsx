@@ -1,12 +1,13 @@
 // src/pages/StudentDashboard.jsx
 import { useReducer, useEffect } from 'react';
+import { BookOpen, Calendar, BarChart3 } from 'lucide-react';
+
 import StudentProfileCard from '../components/student/StudentProfileCard';
 import StudentStatCards from '../components/student/StudentStatCards';
 import StudentCourseList from '../components/student/StudentCourseList';
 import StudentCalendar from '../components/student/StudentCalendar';
 import dashboardService from '../services/dashboardService';
 
-// ── Reducer ──────────────────────────────────────────────
 const initial = { data: null, loading: true, error: null };
 
 function reducer(state, action) {
@@ -29,79 +30,108 @@ export default function StudentDashboard() {
   useEffect(() => {
     let ignore = false;
 
-    // Single dispatch — one render, no cascade
-    dispatch({ type: 'LOADING' });
-
     dashboardService
       .getStudentDashboard()
       .then(result => {
         if (!ignore) dispatch({ type: 'SUCCESS', payload: result });
       })
       .catch(err => {
-        if (!ignore) dispatch({
-          type: 'ERROR',
-          payload: err?.message || 'Failed to load dashboard.',
-        });
+        if (!ignore) {
+          dispatch({
+            type: 'ERROR',
+            payload: err?.message || 'Failed to load dashboard.',
+          });
+        }
       });
 
     return () => { ignore = true; };
   }, []);
 
-  // ── Loading skeleton ──────────────────────────────────────
   if (loading) {
     return (
-        <div className="max-w-[880px] mx-auto px-6 py-8 flex flex-col gap-3">
-          <div className="h-4 w-24 bg-[#1A1D26] rounded animate-skeleton" />
-          <div className="h-24 bg-[#1A1D26] rounded-xl animate-skeleton" />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="h-28 bg-[#1A1D26] rounded-xl animate-skeleton" />
-            <div className="h-28 bg-[#1A1D26] rounded-xl animate-skeleton" />
-          </div>
-          <div className="h-4 w-28 bg-[#1A1D26] rounded animate-skeleton mt-1" />
-          <div className="h-28 bg-[#1A1D26] rounded-xl animate-skeleton" />
-          <div className="h-28 bg-[#1A1D26] rounded-xl animate-skeleton" />
-          <div className="h-4 w-20 bg-[#1A1D26] rounded animate-skeleton mt-1" />
-          <div className="h-96 bg-[#1A1D26] rounded-xl animate-skeleton" />
-        </div>
+      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+        Loading dashboard...
+      </div>
     );
   }
 
-  // ── Error ─────────────────────────────────────────────────
   if (error) {
     return (
-        <div className="flex items-center justify-center h-[60vh]">
-          <div className="text-center">
-            <p className="text-sm text-red-400 mb-2">{error}</p>
-            <button
-              onClick={() => dispatch({ type: 'LOADING' })}
-              className="text-[13px] text-[#2B4EFF] bg-transparent border-none
-                         cursor-pointer underline underline-offset-2"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
+      <div className="p-6 text-red-400 text-sm">{error}</div>
     );
   }
 
   const { student, summary, courses } = data;
 
-  // ── Dashboard ─────────────────────────────────────────────
+  const stats = [
+    {
+      label: "Enrolled Courses",
+      value: summary?.total_courses,
+      icon: BookOpen,
+      accent: { bg: "#F0F3FA", icon: "#395886" },
+    },
+    {
+      label: "Completed",
+      value: summary?.completed_courses,
+      icon: BarChart3,
+      accent: { bg: "#e6f4f1", icon: "#1d6b5a" },
+    },
+    {
+      label: "Upcoming",
+      value: summary?.upcoming_classes,
+      icon: Calendar,
+      accent: { bg: "#fdf3e4", icon: "#a0610d" },
+    },
+  ];
+
   return (
-      <div className="max-w-[880px] mx-auto px-6 py-8 flex flex-col gap-5">
+    <div className="p-6 max-w-5xl mx-auto">
 
-        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#6B7280]">
-          Your Profile
-        </span>
-
-        <StudentProfileCard student={student} />
-
-        <StudentStatCards summary={summary} />
-
-        <StudentCourseList courses={courses} />
-
-        <StudentCalendar />
-
+      {/* Header */}
+      <div className="mb-7">
+        <h1 className="text-xl font-medium text-gray-900 mb-1">
+          Student dashboard
+        </h1>
+        <p className="text-sm text-gray-400">
+          Your learning progress and course activity
+        </p>
       </div>
+
+      {/* Profile Section */}
+      <div className="mb-8 bg-white border border-gray-100 rounded-xl p-5">
+        <StudentProfileCard student={student} />
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+        <StudentStatCards summary={summary} />
+      </div>
+
+      {/* Courses Section */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium text-gray-900">Courses</h2>
+          <span className="text-xs text-gray-400">
+            {courses?.length ?? 0} total
+          </span>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+          <StudentCourseList courses={courses} />
+        </div>
+      </div>
+
+      {/* Calendar Section */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium text-gray-900">Schedule</h2>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-xl p-4">
+          <StudentCalendar />
+        </div>
+      </div>
+
+    </div>
   );
 }

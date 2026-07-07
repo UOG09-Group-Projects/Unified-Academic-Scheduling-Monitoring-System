@@ -49,9 +49,9 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center
                           justify-center mx-auto mb-4">
-            <span className="text-white text-2xl font-bold">A</span>
+            <span className="text-white text-2xl font-bold">L</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Academic Scheduler</h1>
+          <h1 className="text-2xl font-bold text-gray-800">LightLearn</h1>
           <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
         </div>
 

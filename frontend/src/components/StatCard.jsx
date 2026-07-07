@@ -6,13 +6,13 @@ const COLOR_MAP = {
   red:    { card: 'bg-red-50    border-red-100',   icon: 'bg-red-100   text-red-600',   val: 'text-red-700'    },
 };
 
-export default function StatCard({ label, value, color = 'blue', icon }) {
+export default function StatCard({ label, value, color = 'blue', icon: Icon }) {
   const s = COLOR_MAP[color] || COLOR_MAP.blue;
   return (
     <div className={`rounded-xl border p-5 flex items-center gap-4 ${s.card}`}>
       <div className={`w-11 h-11 rounded-xl flex items-center justify-center
                        text-xl flex-shrink-0 ${s.icon}`}>
-        {icon}
+        <Icon />
       </div>
       <div>
         <p className={`text-2xl font-bold leading-none ${s.val}`}>{value ?? '—'}</p>

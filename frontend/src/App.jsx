@@ -23,6 +23,12 @@ import StudentDashboard from './pages/StudentDashboard';
 import ParentDashboard from './pages/ParentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
 
+import Institutions from "./pages/superadmin/Institutions";
+import Profile from "./pages/superadmin/Profile";
+import Settings from "./pages/superadmin/Settings";
+import ManagerManagement from './pages/ManagerManagement';
+import Home from './pages/Home';
+
 function App() {
   return (
     <AuthProvider>
@@ -30,6 +36,9 @@ function App() {
         <Routes>
 
           {/* PUBLIC ROUTES */}
+          <Route path="/" element={
+            <PublicRoute><Home /></PublicRoute>
+          } />
           <Route path="/login" element={
             <PublicRoute><LoginPage /></PublicRoute>
           } />
@@ -104,7 +113,15 @@ function App() {
     path="/batches"
     element={<BatchManagement />}
   />
+
+  <Route path="/managers" element={<ManagerManagement />} />
+  <Route path="/superadmin/institutions" element={<Institutions />} />
+<Route path="/superadmin/profile" element={<Profile />} />
+<Route path="/superadmin/settings" element={<Settings />} />
+
 </Route>
+
+
 
         </Routes>
       </BrowserRouter>

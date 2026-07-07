@@ -38,7 +38,6 @@ function buildInitialForm(selectedCourse, allBatches, allEducators) {
 
 export default function CourseForm({
   selectedCourse,
-  institutions,
   allBatches,
   allEducators,
   onInsert,
@@ -69,16 +68,7 @@ export default function CourseForm({
       <h2 className="text-base font-semibold text-gray-700 mb-4 border-b pb-2">Course Management</h2>
 
       {/* Institution */}
-      <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Institution</label>
-        <select name="institution" value={form.institution} onChange={handleChange}
-          className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-          <option value="">-- Select Institution --</option>
-          {institutions.map(inst => (
-            <option key={inst.id} value={inst.id}>{inst.name}</option>
-          ))}
-        </select>
-      </div>
+      
 
       {/* Course Name */}
       <div className="mb-3">

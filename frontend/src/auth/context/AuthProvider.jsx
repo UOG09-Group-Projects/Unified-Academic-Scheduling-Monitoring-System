@@ -5,21 +5,13 @@ import authService from "../services/authService";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const token = authService.getAccessToken();
-    const storedUser = authService.getUser();
-
-    // Only restore session if BOTH token and user exist
-    if (!token || !storedUser) {
-      authService.logout(); // wipe any partial/stale state
-      return null;
-    }
-    return storedUser;
+    return authService.getUser();
   });
 
   const login = async (email, password) => {
-    const user = await authService.login(email, password);
-    setUser(user);
-    return user;
+    const loggedInUser = await authService.login(email, password);
+    setUser(loggedInUser);
+    return loggedInUser;
   };
 
   const logout = async () => {

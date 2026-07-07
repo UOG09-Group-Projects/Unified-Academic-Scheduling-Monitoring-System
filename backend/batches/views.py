@@ -8,7 +8,7 @@ from .serializers import BatchSerializer
 
 class BatchListCreateView(ProtectedView):
 
-    # ❌ ROLES REMOVED FOR DEV MODE
+    # ROLES REMOVED FOR DEV MODE
     required_roles = []
 
     def get(self, request):

@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from .models import User
 
 
-# ✅ DEV MODE FLAG (ADD THIS)
+#DEV MODE FLAG (ADD THIS)
 DEV_MODE = False   # change to False in production
 
 
@@ -45,21 +45,24 @@ def decode_token(token):
     return jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
 
 
+DEV_MODE = False  # ← make sure this is False
+
 def get_user_from_token(request):
+    print("=== GET USER FROM TOKEN ===")
+    print("Cookies:", request.COOKIES)
+    print("Auth header:", request.META.get('HTTP_AUTHORIZATION', 'MISSING'))
+    token = request.COOKIES.get('access_token')
 
-    # 🔥 DEV MODE BYPASS
-    if DEV_MODE:
-        return User.objects.first()
+    # Fallback to Authorization header (for backward compat during transition)
+    if not token:
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        elif auth_header:
+            token = auth_header
 
-    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-
-    if not auth_header:
+    if not token:
         return None
-
-    if auth_header.startswith('Bearer '):
-        token = auth_header.split(' ')[1]
-    else:
-        token = auth_header
 
     try:
         payload = decode_token(token)
@@ -97,3 +100,21 @@ def jwt_required(roles=None):
 
 class ProtectedView(APIView):
     required_roles = []
+
+    def dispatch(self, request, *args, **kwargs):
+        user = get_user_from_token(request)
+
+        if user is None:
+            return JsonResponse({'error': 'Authentication required.'}, status=401)
+
+        if self.required_roles and user.role not in self.required_roles:
+            return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+        # ✅ Works for both plain Django requests and DRF requests
+        try:
+            request._request.current_user = user  # DRF wraps request
+        except AttributeError:
+            pass
+        request.current_user = user  # plain Django request
+
+        return super().dispatch(request, *args, **kwargs)
