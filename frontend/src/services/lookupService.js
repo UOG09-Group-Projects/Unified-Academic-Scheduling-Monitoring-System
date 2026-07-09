@@ -4,7 +4,7 @@ const API = 'http://localhost:8000/api';
 
 const client = axios.create({
   baseURL: API,
-  withCredentials: true, // sends httpOnly cookie on every request
+  withCredentials: true,
 });
 
 const lookupService = {
@@ -13,13 +13,15 @@ const lookupService = {
     return res.data;
   },
 
-  listBatches: async () => {
-    const res = await client.get('/batches/');
+  // ✅ accepts optional params → ?institution_id=3
+  listBatches: async (params = {}) => {
+    const res = await client.get('/batches/', { params });
     return res.data;
   },
 
-  listEducators: async () => {
-    const res = await client.get('/educators/');
+  // ✅ accepts optional params + keeps the name mapping
+  listEducators: async (params = {}) => {
+    const res = await client.get('/educators/', { params });
     return res.data.map((e) => ({
       id: e.id,
       name: e.name,

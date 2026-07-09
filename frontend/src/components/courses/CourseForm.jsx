@@ -56,7 +56,6 @@ export default function CourseForm({
   };
 
   const buildPayload = () => ({
-    institution: form.institution,
     name: form.name,
     code: form.code,
     batch_ids: form.batchesAssigned.map(b => b.id),

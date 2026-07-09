@@ -1,5 +1,5 @@
 from django.db import transaction
-from .models import Manager
+from institutions.models import Manager
 from institutions.models import Institution, User
 
 

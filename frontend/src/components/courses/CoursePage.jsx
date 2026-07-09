@@ -5,6 +5,11 @@ import courseService from "../../services/courseService";
 import lookupService from "../../services/lookupService";
 
 export default function CoursePage() {
+
+  const user = JSON.parse(
+    localStorage.getItem("user")
+  );
+
   const [courses, setCourses] = useState([]);
   const [institutions, setInstitutions] = useState([]);
   const [allBatches, setAllBatches] = useState([]);
@@ -19,10 +24,32 @@ export default function CoursePage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Fetch courses whenever the search term changes (or on mount).
-  // Logic lives directly inside the effect with an `ignore` flag to guard
-  // against race conditions / setting state after unmount or after a newer
-  // search has already started.
+  // ── Effect 1: Load institutions once (no institution filter needed here) ──
+  useEffect(() => {
+    lookupService.listInstitutions()
+      .then(data => setInstitutions(data))
+      .catch(() => showToast('Failed to load institutions.', 'error'));
+  }, []);
+
+  // ── Effect 2: Load batches + educators filtered by user's institution ──
+  useEffect(() => {
+    if (!user?.institution_id) return;
+
+    const params = { institution_id: user.institution_id };
+
+    Promise.all([
+      lookupService.listBatches(params),
+      lookupService.listEducators(params),
+    ])
+      .then(([batches, educators]) => {
+        setAllBatches(batches);
+        setAllEducators(educators);
+      })
+      .catch(() => showToast('Failed to load form data.', 'error'));
+
+  }, [user?.institution_id]);
+
+  // ── Effect 3: Load courses, re-runs when search changes ──
   useEffect(() => {
     let ignore = false;
 
@@ -36,67 +63,40 @@ export default function CoursePage() {
     }
 
     loadCourses();
-
     return () => { ignore = true; };
   }, [search]);
 
-  // Load institutions, batches, educators once on mount
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadDropdowns() {
-      try {
-        const [institutionsData, batchesData, educatorsData] = await Promise.all([
-          lookupService.listInstitutions(),
-          lookupService.listBatches(),
-          lookupService.listEducators(),
-        ]);
-        if (ignore) return;
-        setInstitutions(institutionsData);
-        setAllBatches(batchesData);
-        setAllEducators(educatorsData);
-      } catch {
-        if (!ignore) showToast('Failed to load form data.', 'error');
-      }
-    }
-
-    loadDropdowns();
-
-    return () => { ignore = true; };
-  }, []);
-
-  // Reusable refetch for after insert/update/delete (a normal event-driven
-  // call, not inside an effect, so this is unaffected by the lint rule)
+  // ── Refetch after mutations ──
   const refetchCourses = async () => {
-  try {
-    const data = await courseService.list(search);
-    console.log("Courses after refresh:", data);
-    setCourses(data);
-  } catch {
-    showToast("Failed to refresh course list.", "error");
-  }
-};
+    try {
+      const data = await courseService.list(search);
+      setCourses(data);
+    } catch {
+      showToast('Failed to refresh course list.', 'error');
+    }
+  };
 
   const handleInsert = async (payload) => {
-  try {
-    console.log("Payload:", payload);
-
-    const res = await courseService.create(payload);
-    console.log("Create response:", res);
-
-    showToast("Course created successfully!");
-    await refetchCourses();
-    setSelectedCourse(null);
-  } catch (err) {
-    console.log(err.response?.data);
-    showToast(err.response?.data?.error || "Insert failed.", "error");
-  }
-};
+    try {
+      await courseService.create({
+        ...payload,
+        institution: user.institution_id,  // always injected from auth, not form
+      });
+      showToast('Course created successfully!');
+      await refetchCourses();
+      setSelectedCourse(null);
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Insert failed.', 'error');
+    }
+  };
 
   const handleUpdate = async (id, payload) => {
     if (!id) return showToast('Select a course to update.', 'error');
     try {
-      await courseService.update(id, payload);
+      await courseService.update(id, {
+        ...payload,
+        institution: user.institution_id,
+      });
       showToast('Course updated successfully!');
       await refetchCourses();
       setSelectedCourse(null);
@@ -119,8 +119,9 @@ export default function CoursePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-xl font-medium text-gray-800 pb-4 mb-5 border-b border-gray-200">Course Management</h1>
-        
+        <h1 className="text-xl font-medium text-gray-800 pb-4 mb-5 border-b border-gray-200">
+          Course Management
+        </h1>
 
         <div className="mb-4">
           <input
@@ -145,13 +146,16 @@ export default function CoursePage() {
 
         <CourseTable
           courses={courses}
-          onEdit={(course) => setSelectedCourse(course)}
-          onView={(course) => setViewCourse(course)}
+          onEdit={course => setSelectedCourse(course)}
+          onView={course => setViewCourse(course)}
+          onSelect={setSelectedCourse}
+          selectedId={selectedCourse?.id}
         />
       </div>
 
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg text-white text-sm ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg text-white text-sm
+          ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
           {toast.message}
         </div>
       )}
@@ -160,7 +164,9 @@ export default function CoursePage() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-1">{viewCourse.name}</h2>
-            <p className="text-sm text-gray-500 mb-4">Code: {viewCourse.code} | {viewCourse.institution_name}</p>
+            <p className="text-sm text-gray-500 mb-4">
+              Code: {viewCourse.code} | {viewCourse.institution_name}
+            </p>
             <div className="mb-3">
               <p className="text-sm font-medium text-gray-700 mb-1">Batches</p>
               <div className="flex flex-wrap gap-1">

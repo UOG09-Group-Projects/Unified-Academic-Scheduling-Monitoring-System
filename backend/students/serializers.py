@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Student, Guardian, StudentGuardian
+from institutions.models import Student, Guardian, StudentGuardian
 
 
 class GuardianSerializer(serializers.ModelSerializer):
@@ -17,9 +17,9 @@ class StudentGuardianSerializer(serializers.ModelSerializer):
 
 
 class StudentSerializer(serializers.ModelSerializer):
-    batch_name       = serializers.CharField(source='batch.name', read_only=True)
-    guardians        = serializers.SerializerMethodField()
-    guardian_count   = serializers.SerializerMethodField()
+    batch_name     = serializers.CharField(source='batch.name', read_only=True)
+    guardians      = serializers.SerializerMethodField()
+    guardian_count = serializers.SerializerMethodField()
 
     class Meta:
         model  = Student

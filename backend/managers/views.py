@@ -2,17 +2,16 @@ from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Manager
+from institutions.models import Manager
 from .serializers import (
     ManagerListSerializer,
     ManagerCreateSerializer
 )
 from .services import ManagerService
-from institutions.jwt_utils import ProtectedView
+from institutions.views import JWTView
 
 
-class ManagerListCreateView(ProtectedView):
-    required_roles = ["OWNER", "SUPER_ADMIN"]
+class ManagerListCreateView(JWTView):
 
     def get(self, request):
         managers = Manager.objects.select_related(
@@ -54,8 +53,7 @@ class ManagerListCreateView(ProtectedView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ManagerDetailView(ProtectedView):
-    required_roles = ["OWNER", "SUPER_ADMIN"]
+class ManagerDetailView(JWTView):
 
     def get_object(self, pk):
         try:

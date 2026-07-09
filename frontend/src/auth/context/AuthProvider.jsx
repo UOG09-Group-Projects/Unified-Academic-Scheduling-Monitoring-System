@@ -1,26 +1,66 @@
-// src/auth/context/AuthProvider.jsx
 import { useState } from "react";
 import { AuthContext } from "./AuthContext";
-import authService from "../services/authService";
+
 
 export function AuthProvider({ children }) {
+
   const [user, setUser] = useState(() => {
-    return authService.getUser();
+
+    const savedUser = localStorage.getItem("user");
+
+    return savedUser ? JSON.parse(savedUser) : null;
+
   });
 
+
   const login = async (email, password) => {
-    const loggedInUser = await authService.login(email, password);
-    setUser(loggedInUser);
-    return loggedInUser;
+
+    if (
+      email === "admin@lightlearn.com" &&
+      password === "admin123"
+    ) {
+
+      const fakeUser = {
+        email: "admin@lightlearn.com",
+        id: 1
+      };
+
+
+      setUser(fakeUser);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(fakeUser)
+      );
+
+
+      return fakeUser;
+
+    }
+
+
+    throw new Error("Invalid credentials");
+
   };
 
-  const logout = async () => {
-    await authService.logout();
+
+  const logout = () => {
+
     setUser(null);
+
+    localStorage.removeItem("user");
+
   };
+
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -1,7 +1,7 @@
 from django.db import transaction
 from institutions.models import ActivityLog
 
-from .models import Course, CourseBatch, Allocation
+from institutions.models import Course, CourseBatch, Allocation
 
 
 class CourseService:

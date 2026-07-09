@@ -11,11 +11,6 @@ import ForgotPasswordPage from './auth/ForgotPasswordPage';
 import ResetPasswordPage from './auth/ResetPasswordPage';
 import VerifyEmailPage from './auth/VerifyEmailPage';
 
-import { AuthProvider } from './auth/context/AuthProvider';
-
-import ProtectedRoute from './routes/ProtectedRoute';
-import PublicRoute from './routes/PublicRoute';
-
 import ManagerDashboard from './pages/ManagerDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import EducatorDashboard from './pages/EducatorDashboard';
@@ -29,103 +24,97 @@ import Settings from "./pages/superadmin/Settings";
 import ManagerManagement from './pages/ManagerManagement';
 import Home from './pages/Home';
 
+
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
+    <BrowserRouter>
+      <Routes>
 
-          {/* PUBLIC ROUTES */}
-          <Route path="/" element={
-            <PublicRoute><Home /></PublicRoute>
-          } />
-          <Route path="/login" element={
-            <PublicRoute><LoginPage /></PublicRoute>
-          } />
-
-          <Route path="/forgot-password" element={
-            <PublicRoute><ForgotPasswordPage /></PublicRoute>
-          } />
-
-          <Route path="/reset-password" element={
-            <PublicRoute><ResetPasswordPage /></PublicRoute>
-          } />
-
-          <Route path="/verify-email" element={
-            <PublicRoute><VerifyEmailPage /></PublicRoute>
-          } />
-
-          {/* PROTECTED ROUTES */}
-          {/* PROTECTED ROUTES */}
-<Route
-  element={
-    <ProtectedRoute>
-      <DashboardLayout />
-    </ProtectedRoute>
-  }
->
-  <Route
-    path="/dashboard/super-admin"
-    element={<SuperAdminDashboard />}
-  />
-
-  <Route
-    path="/dashboard/manager"
-    element={<ManagerDashboard />}
-  />
-
-  <Route
-    path="/dashboard/educator"
-    element={<EducatorDashboard />}
-  />
-
-  <Route
-    path="/dashboard/student"
-    element={<StudentDashboard />}
-  />
-
-  <Route
-    path="/dashboard/parent"
-    element={<ParentDashboard />}
-  />
-
-  <Route
-    path="/institutions"
-    element={<Institution />}
-  />
-
-  <Route
-    path="/courses"
-    element={<Course />}
-  />
-
-  <Route
-    path="/educators"
-    element={<EducatorManagement />}
-  />
-
-  <Route
-    path="/students"
-    element={<StudentPage />}
-  />
-
-  <Route
-    path="/batches"
-    element={<BatchManagement />}
-  />
-
-  <Route path="/managers" element={<ManagerManagement />} />
-  <Route path="/superadmin/institutions" element={<Institutions />} />
-<Route path="/superadmin/profile" element={<Profile />} />
-<Route path="/superadmin/settings" element={<Settings />} />
-
-</Route>
+        {/* PUBLIC ROUTES */}
+        <Route path="/" element={<Home />} />
+         <Route path="/login" element={<LoginPage />} /> 
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
 
 
+        {/* DASHBOARD LAYOUT ROUTES */}
+        <Route element={<DashboardLayout />}>
 
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+          <Route 
+            path="/dashboard/super-admin" 
+            element={<SuperAdminDashboard />} 
+          />
+
+          <Route 
+            path="/dashboard/manager" 
+            element={<ManagerDashboard />} 
+          />
+
+          <Route 
+            path="/dashboard/educator" 
+            element={<EducatorDashboard />} 
+          />
+
+          <Route 
+            path="/dashboard/student" 
+            element={<StudentDashboard />} 
+          />
+
+          <Route 
+            path="/dashboard/parent" 
+            element={<ParentDashboard />} 
+          />
+
+          <Route 
+            path="/institutions" 
+            element={<Institution />} 
+          />
+
+          <Route 
+            path="/courses" 
+            element={<Course />} 
+          />
+
+          <Route 
+            path="/educators" 
+            element={<EducatorManagement />} 
+          />
+
+          <Route 
+            path="/students" 
+            element={<StudentPage />} 
+          />
+
+          <Route 
+            path="/batches" 
+            element={<BatchManagement />} 
+          />
+
+          <Route 
+            path="/managers" 
+            element={<ManagerManagement />} 
+          />
+
+          <Route 
+            path="/superadmin/institutions" 
+            element={<Institutions />} 
+          />
+
+          <Route 
+            path="/superadmin/profile" 
+            element={<Profile />} 
+          />
+
+          <Route 
+            path="/superadmin/settings" 
+            element={<Settings />} 
+          />
+
+        </Route>
+
+      </Routes>
+    </BrowserRouter>
   );
 }
 

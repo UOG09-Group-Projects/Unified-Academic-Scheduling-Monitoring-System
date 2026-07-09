@@ -1,6 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from .models import Educator
+from institutions.models import Educator
 from .serializers import EducatorSerializer
 from institutions.models import User
 
@@ -41,7 +41,6 @@ class EducatorViewSet(viewsets.ModelViewSet):
             user = User(
                 username=email,  # use email as username
                 email=email,
-                role='EDUCATOR',
                 is_active=True,
                 is_email_verified=True,
             )
@@ -93,3 +92,20 @@ class EducatorViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get(self, request):
+        institution_id = request.query_params.get('institution_id')
+        
+        educators = Educator.objects.filter(is_deleted=False)
+        
+        if institution_id:
+            educators = educators.filter(institution_id=institution_id)
+        
+        # MANAGER should ONLY see their own institution — enforce it
+            educators = educators.filter(
+                institution_id=request.current_user.institution_id
+            )
+        
+        data = [{"id": e.id, "name": e.user.get_full_name()} for e in educators]
+        return JsonResponse(data, safe=False)
+    

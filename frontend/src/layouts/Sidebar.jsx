@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/hooks/useAuth';
 import {
   LayoutDashboard, Building2, BookOpen, Users,
   GraduationCap, Layers3, Settings, User, LogOut,
@@ -23,13 +22,13 @@ const NAV_ITEMS = {
     //{ label: 'Educators',    path: '/educators' },
     //{ label: 'Students',     path: '/students' },
     //{ label: 'Batches',      path: '/batches' },
-    //{ label: 'Profile',      path: '/profile' },
+    { label: 'Profile',      path: '/profile' },
   ],
   MANAGER: [
     { label: 'Dashboard', path: '/dashboard/manager' },
     { label: 'Courses',   path: '/courses' },
     { label: 'Educators', path: '/educators' },
-    { label: 'Students',  path: '/students' },
+    //{ label: 'Students',  path: '/students' },
     { label: 'Batches',   path: '/batches' },
     { label: 'Profile',   path: '/profile' },
   ],
@@ -81,21 +80,33 @@ const ICONS = {
 const SECONDARY = new Set(['Profile', 'Settings', 'Subscriptions']);
 
 function SidebarContent({ onClose }) {
-  const { user, logout } = useAuth();
+
   const navigate = useNavigate();
 
-  const items     = NAV_ITEMS[user?.role] || [];
-  const roleLabel = user?.role?.replace('_', ' ') || '';
-  const badge     = ROLE_BADGE[user?.role] || 'bg-gray-500/10 text-gray-400';
-  const initials  = user?.email ? user.email.slice(0, 2).toUpperCase() : '??';
+
+  const user = JSON.parse(
+    localStorage.getItem("user")
+  );
+
+
+  const items = [
+    { label: 'Dashboard', path: '/dashboard/manager' },
+    { label: 'Courses',   path: '/courses' },
+    { label: 'Educators', path: '/educators' },
+    //{ label: 'Students',  path: '/students' },
+    { label: 'Batches',   path: '/batches' },
+    { label: 'Profile',   path: '/profile' }
+  ];
+
+
+  const initials = user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "GU";
 
   const primaryItems   = items.filter(i => !SECONDARY.has(i.label));
   const secondaryItems = items.filter(i => SECONDARY.has(i.label));
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
+ 
 
   return (
     <div className="flex flex-col h-full">
@@ -115,10 +126,6 @@ function SidebarContent({ onClose }) {
             <p className="text-[10px] text-[#4B5563] leading-none mb-2">
               Academic Scheduling
             </p>
-            <span className={`text-[9px] font-semibold uppercase px-2 py-0.5
-                              rounded tracking-wide ${badge}`}>
-              {roleLabel}
-            </span>
           </div>
         </div>
         {/* Close button — mobile only */}
@@ -222,7 +229,7 @@ function SidebarContent({ onClose }) {
               {user?.email}
             </p>
             <button
-              onClick={handleLogout}
+              //onClick={handleLogout}
               className="text-[10px] text-red-400 hover:text-red-300 transition-colors
                          flex items-center gap-1 mt-0.5 bg-transparent border-none p-0
                          cursor-pointer"

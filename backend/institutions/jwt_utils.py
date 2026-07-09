@@ -1,120 +1,141 @@
 import jwt
 import datetime
 from django.conf import settings
-from django.http import JsonResponse
-from functools import wraps
-from rest_framework.views import APIView
-from .models import User
 
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM  = "HS256"
 
-#DEV MODE FLAG (ADD THIS)
-DEV_MODE = False   # change to False in production
+ACCESS_TOKEN_EXPIRY  = datetime.timedelta(hours=1)
+REFRESH_TOKEN_EXPIRY = datetime.timedelta(days=7)
 
+# ---------------------------------------------------------------------------
+# Token builders
+# ---------------------------------------------------------------------------
 
-def generate_tokens(user):
-    now = datetime.datetime.utcnow()
+def _resolve_institution_id(user) -> int | None:
+    """
+    Look up institution_id from the correct profile table based on role name.
+    Returns None for roles that aren't scoped to an institution
+    (SUPER_ADMIN, OWNER, STUDENT, PARENT, GUARDIAN).
+    """
+    role_name = user.role.name.upper()
 
-    access_payload = {
-        'user_id': user.id,
-        'email': user.email,
-        'role': user.role,
-        'type': 'access',
-        'iat': now,
-        'exp': now + datetime.timedelta(hours=8),
-    }
-
-    refresh_payload = {
-        'user_id': user.id,
-        'email': user.email,
-        'role': user.role,
-        'type': 'refresh',
-        'iat': now,
-        'exp': now + datetime.timedelta(days=7),
-    }
-
-    access_token = jwt.encode(access_payload, settings.SECRET_KEY, algorithm='HS256')
-    refresh_token = jwt.encode(refresh_payload, settings.SECRET_KEY, algorithm='HS256')
-
-    return {
-        'access': access_token,
-        'refresh': refresh_token,
-    }
-
-
-def decode_token(token):
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-
-
-DEV_MODE = False  # ← make sure this is False
-
-def get_user_from_token(request):
-    print("=== GET USER FROM TOKEN ===")
-    print("Cookies:", request.COOKIES)
-    print("Auth header:", request.META.get('HTTP_AUTHORIZATION', 'MISSING'))
-    token = request.COOKIES.get('access_token')
-
-    # Fallback to Authorization header (for backward compat during transition)
-    if not token:
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-        elif auth_header:
-            token = auth_header
-
-    if not token:
-        return None
-
-    try:
-        payload = decode_token(token)
-
-        if payload.get('type') != 'access':
+    if role_name == 'MANAGER':
+        try:
+            return user.manager_profile.institution_id
+        except Exception:
             return None
 
-        return User.objects.get(id=payload['user_id'])
+    if role_name == 'EDUCATOR':
+        try:
+            return user.educator_profile.institution_id
+        except Exception:
+            return None
 
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, User.DoesNotExist):
-        return None
+    return None
 
 
-def jwt_required(roles=None):
+def _build_payload(user, token_type: str, expiry: datetime.timedelta) -> dict:
+    """Build the JWT payload dict from a User instance."""
+    now = datetime.datetime.utcnow()
+
+    payload = {
+        # standard claims
+        "sub":        str(user.id),
+        "iat":        now,
+        "exp":        now + expiry,
+        "token_type": token_type,
+
+        # app claims
+        "user_id":    user.id,
+        "username":   user.username,
+        "email":      user.email,
+        "role":       user.role.name,           # string name from roles table
+        "role_id":    user.role_id,             # FK int (useful for DB joins)
+    }
+
+    # Attach institution_id for roles that need it
+    institution_id = _resolve_institution_id(user)
+    if institution_id is not None:
+        payload["institution_id"] = institution_id
+
+    return payload
+
+
+def generate_access_token(user) -> str:
+    payload = _build_payload(user, "access", ACCESS_TOKEN_EXPIRY)
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def generate_refresh_token(user) -> str:
+    payload = _build_payload(user, "refresh", REFRESH_TOKEN_EXPIRY)
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+# ---------------------------------------------------------------------------
+# Token decoder
+# ---------------------------------------------------------------------------
+
+def decode_token(token: str) -> dict:
+    """
+    Decode and verify a JWT. Raises jwt.ExpiredSignatureError or
+    jwt.InvalidTokenError on failure.
+    """
+    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+
+# ---------------------------------------------------------------------------
+# Decorator
+# ---------------------------------------------------------------------------
+
+import functools
+from django.http import JsonResponse
+
+
+def jwt_required(roles: list[str] | None = None):
+    """
+    Usage:
+        @jwt_required()                          # any authenticated user
+        @jwt_required(roles=['MANAGER'])         # manager only
+        @jwt_required(roles=['MANAGER','OWNER']) # either role
+
+    Sets request.current_user as a dict with all JWT payload fields.
+    """
     def decorator(view_func):
-        @wraps(view_func)
+        @functools.wraps(view_func)
         def wrapper(request, *args, **kwargs):
+            token = request.COOKIES.get('access_token')
 
-            user = get_user_from_token(request)
+            if not token:
+                # Also accept Bearer header as fallback
+                auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(' ', 1)[1]
 
-            if user is None:
+            if not token:
                 return JsonResponse(
-                    {'error': 'Authentication required.'},
-                    status=401
+                    {'error': 'Authentication required'}, status=401
                 )
 
-            # ❌ ROLE CHECK REMOVED (GOOD FOR DEV)
+            try:
+                payload = decode_token(token)
+            except jwt.ExpiredSignatureError:
+                return JsonResponse({'error': 'Token expired'}, status=401)
+            except jwt.InvalidTokenError:
+                return JsonResponse({'error': 'Invalid token'}, status=401)
 
-            request.current_user = user
+            if payload.get('token_type') != 'access':
+                return JsonResponse({'error': 'Invalid token type'}, status=401)
+
+            # Role gate
+            if roles:
+                user_role = payload.get('role', '').upper()
+                allowed   = [r.upper() for r in roles]
+                if user_role not in allowed:
+                    return JsonResponse({'error': 'Forbidden'}, status=403)
+
+            request.current_user = payload
             return view_func(request, *args, **kwargs)
 
         return wrapper
     return decorator
-
-
-class ProtectedView(APIView):
-    required_roles = []
-
-    def dispatch(self, request, *args, **kwargs):
-        user = get_user_from_token(request)
-
-        if user is None:
-            return JsonResponse({'error': 'Authentication required.'}, status=401)
-
-        if self.required_roles and user.role not in self.required_roles:
-            return JsonResponse({'error': 'Permission denied.'}, status=403)
-
-        # ✅ Works for both plain Django requests and DRF requests
-        try:
-            request._request.current_user = user  # DRF wraps request
-        except AttributeError:
-            pass
-        request.current_user = user  # plain Django request
-
-        return super().dispatch(request, *args, **kwargs)

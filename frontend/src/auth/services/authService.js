@@ -9,8 +9,11 @@ const authService = {
       { email, password },
       { withCredentials: true }  // browser stores the httpOnly cookie
     );
-    // Only store user info for UI — token lives in the cookie now
+
     localStorage.setItem('user', JSON.stringify(res.data.user));
+    if (res.data.access) localStorage.setItem('access_token', res.data.access);
+    if (res.data.refresh) localStorage.setItem('refresh_token', res.data.refresh);
+
     return res.data.user;
   },
 
@@ -23,6 +26,8 @@ const authService = {
       );
     } finally {
       localStorage.removeItem('user');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       window.location.href = '/login';
     }
   },

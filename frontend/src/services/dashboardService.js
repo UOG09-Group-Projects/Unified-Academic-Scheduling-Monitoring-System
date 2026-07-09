@@ -6,11 +6,14 @@ const client = axios.create({
   withCredentials: true, // sends httpOnly cookie automatically on every request
 });
 
-// Redirect to login on 401
+// Redirect to login on 401 only for real backend-auth flows.
+// The temporary frontend-only demo login does not have a backend session,
+// so skip the redirect to keep the dashboard usable locally.
 client.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    const isDemoLogin = localStorage.getItem('user')?.includes('demo@lightlearn.com');
+    if (error.response?.status === 401 && !isDemoLogin) {
       localStorage.removeItem('user');
       window.location.href = '/login';
     }

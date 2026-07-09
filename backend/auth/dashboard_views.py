@@ -3,63 +3,32 @@ from django.db.models import Count
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
-from institutions.jwt_utils import get_user_from_token
-from institutions.models import Institution, ActivityLog
+from institutions.jwt_utils import jwt_required
+from institutions.models import (
+    Institution, ActivityLog,
+    Course, Allocation,
+    Student, Educator,
+    Batch, Guardian, StudentGuardian,
+)
 
 
-def dashboard_auth(required_roles=None):
-    def decorator(view_func):
-        def wrapper(request, *args, **kwargs):
-            user = get_user_from_token(request)
-            print("=== DASHBOARD AUTH DEBUG ===")
-            print("User:", user)
-            print("User role:", getattr(user, 'role', 'NO ROLE ATTR'))
-            print("Required roles:", required_roles)
-            print("Token header:", request.headers.get('Authorization', 'MISSING'))
+# ---------------------------------------------------------------------------
+# Manager dashboard
+# GET /api/dashboard/manager/
+# ---------------------------------------------------------------------------
 
-
-            if user is None:
-                return JsonResponse({'error': 'Authentication required.'}, status=401)
-
-            request.current_user = user
-
-            # If roles are specified, enforce them
-            if required_roles and user.role not in required_roles:
-               return JsonResponse({'error': 'Permission denied.'}, status=403)
-
-            return view_func(request, *args, **kwargs)
-
-        return wrapper
-    return decorator
-
+@csrf_exempt
 @require_http_methods(['GET'])
-@dashboard_auth(required_roles=['OWNER', 'MANAGER','SUPER_ADMIN'])
+@jwt_required(roles=['OWNER', 'MANAGER', 'SUPER_ADMIN'])
 def manager_dashboard(request):
-    """
-    GET /api/dashboard/manager/
-    Returns counts, courses per institution, educators per course,
-    recent activity.
-    """
-    from course.models import Course, Allocation
-    from students.models import Student
-
-    try:
-        from educators.models import Educator
-        total_educators = Educator.objects.filter(is_deleted=False).count()
-    except Exception:
-        total_educators = 0
-
-    try:
-        from batches.models import Batch
-        total_batches = Batch.objects.filter(is_deleted=False).count()
-    except Exception:
-        total_batches = 0
+    user = request.current_user   # dict: user_id, role, institution_id, ...
 
     total_institutions = Institution.objects.filter(is_deleted=False).count()
     total_courses      = Course.objects.filter(is_deleted=False).count()
+    total_educators    = Educator.objects.count()
+    total_batches      = Batch.objects.count()
     total_students     = Student.objects.filter(is_deleted=False).count()
 
-    # Courses per institution
     courses_per_institution = list(
         Course.objects
         .filter(is_deleted=False)
@@ -68,7 +37,6 @@ def manager_dashboard(request):
         .order_by('-course_count')
     )
 
-    # Educators per course
     educators_per_course = list(
         Allocation.objects
         .values('course__name')
@@ -76,7 +44,6 @@ def manager_dashboard(request):
         .order_by('-educator_count')[:10]
     )
 
-    # Recent activity
     recent_activity = list(
         ActivityLog.objects.values(
             'id', 'module', 'action', 'description', 'timestamp'
@@ -99,34 +66,22 @@ def manager_dashboard(request):
     })
 
 
+# ---------------------------------------------------------------------------
+# Super admin dashboard
+# GET /api/dashboard/super-admin/
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
 @require_http_methods(['GET'])
-@dashboard_auth(required_roles=['SUPER_ADMIN','OWNER'])
+@jwt_required(roles=['SUPER_ADMIN', 'OWNER'])
 def super_admin_dashboard(request):
-    """
-    GET /api/dashboard/super-admin/
-    System-wide stats across all institutions.
-    """
-    from course.models import Course
-    from students.models import Student
-
-    try:
-        from educators.models import Educator
-        total_educators = Educator.objects.filter(is_deleted=False).count()
-    except Exception:
-        total_educators = 0
-
-    try:
-        from batches.models import Batch
-        total_batches = Batch.objects.filter(is_deleted=False).count()
-    except Exception:
-        total_batches = 0
-
     total_institutions = Institution.objects.filter(is_deleted=False).count()
     total_courses      = Course.objects.filter(is_deleted=False).count()
+    total_educators    = Educator.objects.count()
+    total_batches      = Batch.objects.count()
     total_students     = Student.objects.filter(is_deleted=False).count()
     total_users        = total_educators + total_students
 
-    # Institutions with their course + student counts
     institutions = Institution.objects.filter(is_deleted=False).annotate(
         course_count=Count('courses')
     )
@@ -134,15 +89,14 @@ def super_admin_dashboard(request):
     for inst in institutions:
         student_count = Student.objects.filter(
             batch__institution=inst, is_deleted=False
-        ).count() if hasattr(Student, 'batch') else 0
+        ).count()
         institutions_data.append({
-            'id':           inst.id,
-            'name':         inst.name,
-            'course_count': inst.course_count,
+            'id':            inst.id,
+            'name':          inst.name,
+            'course_count':  inst.course_count,
             'student_count': student_count,
         })
 
-    # System-wide activity log
     recent_activity = list(
         ActivityLog.objects.values(
             'id', 'module', 'action', 'description', 'timestamp'
@@ -165,45 +119,46 @@ def super_admin_dashboard(request):
     })
 
 
-@require_http_methods(['GET'])
-@dashboard_auth(required_roles=['EDUCATOR','SUPER_ADMIN','OWNER'])
-def educator_dashboard(request):
-    """
-    GET /api/dashboard/educator/
-    Returns the logged-in educator's courses, batches and students.
-    """
-    from course.models import Course, Allocation
+# ---------------------------------------------------------------------------
+# Educator dashboard
+# GET /api/dashboard/educator/
+# ---------------------------------------------------------------------------
 
-    user     = request.current_user
+@csrf_exempt
+@require_http_methods(['GET'])
+@jwt_required(roles=['EDUCATOR', 'SUPER_ADMIN', 'OWNER'])
+def educator_dashboard(request):
+    user = request.current_user   # dict
+
     allocations = Allocation.objects.filter(
-        educator__user=user
+        educator__user_id=user['user_id']
     ).select_related('course', 'course__institution')
 
     courses = []
     for alloc in allocations:
         course = alloc.course
-        if not course.is_deleted:
-            batches = course.course_batches.select_related('batch').all()
-            courses.append({
-                'id':          course.id,
-                'name':        course.name,
-                'code':        course.code,
-                'institution': course.institution.name,
-                'batch_count': batches.count(),
-                'batches': [
-                    {'id': cb.batch.id, 'name': cb.batch.name}
-                    for cb in batches
-                ],
-            })
+        if course.is_deleted:
+            continue
+        batches = course.course_batches.select_related('batch').all()
+        courses.append({
+            'id':          course.id,
+            'name':        course.name,
+            'code':        course.code,
+            'institution': course.institution.name,
+            'batch_count': batches.count(),
+            'batches': [
+                {'id': cb.batch.id, 'name': cb.batch.name}
+                for cb in batches
+            ],
+        })
 
-    # Recent activity related to courses this educator teaches
     recent_activity = list(
         ActivityLog.objects.filter(module='COURSE').values(
             'id', 'module', 'action', 'description', 'timestamp'
         )[:10]
     )
     for a in recent_activity:
-        a['timestamp'] = a['timestamp'].strftime('%d %b %Y, %I:%M %p')  
+        a['timestamp'] = a['timestamp'].strftime('%d %b %Y, %I:%M %p')
 
     return JsonResponse({
         'summary': {
@@ -215,36 +170,29 @@ def educator_dashboard(request):
     })
 
 
-@require_http_methods(['GET'])
-@dashboard_auth(required_roles=['STUDENT','SUPER_ADMIN','OWNER'])
-def student_dashboard(request):
-    """
-    GET /api/dashboard/student/
-    Returns the logged-in student's batch, courses and educators.
-    """
-    from course.models import Course
-    from students.models import Student
+# ---------------------------------------------------------------------------
+# Student dashboard
+# GET /api/dashboard/student/
+# ---------------------------------------------------------------------------
 
-    user = request.current_user
-    print("=== STUDENT DASHBOARD ===")
-    print("User:", user, "| ID:", user.id)
-    print("Students in DB:", list(Student.objects.values('id', 'name', 'user_id', 'is_deleted')))
+@csrf_exempt
+@require_http_methods(['GET'])
+@jwt_required(roles=['STUDENT', 'SUPER_ADMIN', 'OWNER'])
+def student_dashboard(request):
+    user = request.current_user   # dict
 
     try:
         student = Student.objects.select_related(
             'batch'
         ).prefetch_related(
             'student_guardians__guardian'
-        ).get(user=user, is_deleted=False)
-        print("Found student:", student)
+        ).get(user_id=user['user_id'], is_deleted=False)
     except Student.DoesNotExist:
-        print("Student NOT found for user_id:", user.id)
         return JsonResponse({'error': 'Student profile not found.'}, status=404)
 
-    # Courses linked to the student's batch
     courses = []
     if student.batch:
-        course_batches = student.batch.coursebatch_set.select_related(
+        course_batches = student.batch.course_batches.select_related(
             'course', 'course__institution'
         ).filter(course__is_deleted=False)
 
@@ -257,10 +205,7 @@ def student_dashboard(request):
                 'code':        course.code,
                 'institution': course.institution.name,
                 'educators': [
-                    {
-                        'id':   a.educator.id,
-                        'name': a.educator.name,
-                    }
+                    {'id': a.educator.id, 'name': a.educator.name}
                     for a in educators
                 ],
             })
@@ -274,40 +219,30 @@ def student_dashboard(request):
             'batch':           student.batch.name if student.batch else None,
         },
         'summary': {
-            'total_courses':  len(courses),
+            'total_courses':   len(courses),
             'total_educators': sum(len(c['educators']) for c in courses),
         },
         'courses': courses,
     })
 
 
+# ---------------------------------------------------------------------------
+# Parent dashboard
+# GET /api/dashboard/parent/
+# ---------------------------------------------------------------------------
 
-@dashboard_auth(required_roles=['PARENT','SUPER_ADMIN','OWNER'])
+@csrf_exempt
 @require_http_methods(['GET'])
+@jwt_required(roles=['PARENT', 'SUPER_ADMIN', 'OWNER'])
 def parent_dashboard(request):
-    """
-    GET /api/dashboard/parent/
-    Returns all children linked to this guardian and their courses.
-    """
-    from course.models import Course
-    from students.models import Student, Guardian, StudentGuardian
-
-    user = request.current_user
-    print("=== PARENT DASHBOARD ===")
-    print("User:", user)
-    print("User id:", user.id)
-
-    user = request.current_user
+    user = request.current_user   # dict
 
     try:
-        guardian = Guardian.objects.get(user=user)
-        print("Guardian found:", guardian)
+        guardian = Guardian.objects.get(user_id=user['user_id'])
     except Guardian.DoesNotExist:
-        print("Guardian NOT found for user:", user)
         return JsonResponse({'error': 'Guardian profile not found.'}, status=404)
 
-    # All students linked to this guardian
-    links    = StudentGuardian.objects.filter(
+    links = StudentGuardian.objects.filter(
         guardian=guardian
     ).select_related('student', 'student__batch')
 
@@ -319,7 +254,7 @@ def parent_dashboard(request):
 
         courses = []
         if student.batch:
-            course_batches = student.batch.coursebatch_set.select_related(
+            course_batches = student.batch.course_batches.select_related(
                 'course'
             ).filter(course__is_deleted=False)
             for cb in course_batches:

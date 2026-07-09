@@ -1,5 +1,5 @@
 from django.db import transaction
-from .models import Student, Guardian, StudentGuardian
+from institutions.models import Student, Guardian, StudentGuardian
 from institutions.models import User
 from institutions.models import ActivityLog
 

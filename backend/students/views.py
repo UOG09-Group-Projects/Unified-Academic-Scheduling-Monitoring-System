@@ -1,13 +1,12 @@
 from rest_framework.response import Response
 from rest_framework import status
-from institutions.jwt_utils import ProtectedView
-from .models import Student, Guardian
+from institutions.views import JWTView
+from institutions.models import Student, Guardian
 from .serializers import StudentSerializer, StudentListSerializer, GuardianSerializer
 from .services import StudentService
 
 
-class StudentListCreateView(ProtectedView):
-    required_roles = []
+class StudentListCreateView(JWTView):
 
     def get(self, request):
         search         = request.query_params.get('search', '')
@@ -42,8 +41,7 @@ class StudentListCreateView(ProtectedView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class StudentDetailView(ProtectedView):
-    required_roles = []
+class StudentDetailView(JWTView):
 
     def get(self, request, pk):
         try:
@@ -79,8 +77,7 @@ class StudentDetailView(ProtectedView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class GuardianListCreateView(ProtectedView):
-    required_roles = []
+class GuardianListCreateView(JWTView):
 
     def get(self, request):
         guardians  = StudentService.list_guardians()
