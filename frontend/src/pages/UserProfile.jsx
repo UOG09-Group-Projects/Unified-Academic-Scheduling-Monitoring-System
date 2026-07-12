@@ -1,9 +1,9 @@
 // src/pages/UserProfile.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   User, Mail, Shield, Save, Lock,
   Eye, EyeOff, CheckCircle, AlertCircle,
-  Pencil, X
+  Pencil, X, Camera
 } from "lucide-react";
 import api from "../services/api";
 
@@ -56,15 +56,23 @@ function PasswordField({ label, value, onChange, placeholder }) {
 }
 
 export default function UserProfile() {
-  const [activeTab, setActiveTab]   = useState("profile");
-  const [editMode, setEditMode]     = useState(false);
-  const [toast, setToast]           = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [saving, setSaving]         = useState(false);
+  const [activeTab, setActiveTab] = useState("profile");
+  const [editMode, setEditMode]   = useState(false);
+  const [toast, setToast]         = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const fileRef                   = useRef();
 
+  // profile = saved data shown in header (only updates after Save)
   const [profile, setProfile] = useState({
-    username: "", email: "", role: "",
+    username: "", email: "", role: "", profile_picture: null,
   });
+
+  // form = editable fields (updates as user types)
+  const [form, setForm] = useState({ username: "", email: "" });
+
+  const [previewUrl, setPreviewUrl]       = useState(null);
+  const [selectedFile, setSelectedFile]   = useState(null);
 
   const [passwords, setPasswords] = useState({
     current: "", new: "", confirm: "",
@@ -80,23 +88,62 @@ export default function UserProfile() {
     api.get("/user/profile/")
       .then(res => {
         setProfile({
-          username: res.data.username,
-          email:    res.data.email,
-          role:     res.data.role,
+          username:        res.data.username,
+          email:           res.data.email,
+          role:            res.data.role,
+          profile_picture: res.data.profile_picture,
         });
+        setForm({ username: res.data.username, email: res.data.email });
+        if (res.data.profile_picture) setPreviewUrl(res.data.profile_picture);
       })
       .catch(() => showToast("Failed to load profile.", "error"))
       .finally(() => setLoading(false));
   }, []);
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleCancelEdit = () => {
+    setForm({ username: profile.username, email: profile.email });
+    setPreviewUrl(profile.profile_picture || null);
+    setSelectedFile(null);
+    setEditMode(false);
+  };
+
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
+      // Step 1: Update username/email via JSON PATCH
       const res = await api.patch("/user/profile/", {
-        username: profile.username,
-        email:    profile.email,
+        username: form.username,
+        email:    form.email,
       });
-      setProfile(p => ({ ...p, ...res.data.user }));
+
+      const updated = res.data.user;
+
+      // Step 2: Upload profile picture separately via POST (multipart)
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('profile_picture', selectedFile);
+        const picRes = await api.post("/user/profile/picture/", formData);
+        if (picRes.data.profile_picture) {
+          setPreviewUrl(picRes.data.profile_picture);
+          setProfile(p => ({ ...p, profile_picture: picRes.data.profile_picture }));
+        }
+      }
+
+      // Update header card with saved values
+      setProfile(p => ({
+        ...p,
+        username: updated.username,
+        email:    updated.email,
+      }));
+      setForm({ username: updated.username, email: updated.email });
+      setSelectedFile(null);
       setEditMode(false);
       showToast("Profile updated successfully.");
     } catch (err) {
@@ -133,9 +180,9 @@ export default function UserProfile() {
   const passwordStrength = (pw) => {
     if (!pw) return 0;
     let s = 0;
-    if (pw.length >= 8)        s++;
-    if (/[A-Z]/.test(pw))     s++;
-    if (/[0-9]/.test(pw))     s++;
+    if (pw.length >= 8)           s++;
+    if (/[A-Z]/.test(pw))        s++;
+    if (/[0-9]/.test(pw))        s++;
     if (/[^A-Za-z0-9]/.test(pw)) s++;
     return s;
   };
@@ -179,15 +226,43 @@ export default function UserProfile() {
           <p className="text-sm text-gray-500 mt-1">View and manage your account information</p>
         </div>
 
-        {/* Profile card */}
+        {/* Profile card — shows SAVED data only */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex items-center gap-5 flex-wrap">
+
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-2xl bg-[#395886] flex items-center justify-center
-                            text-white text-xl font-bold">
-              {profile.username?.slice(0, 2).toUpperCase()}
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-[#395886] flex items-center justify-center
+                              text-white text-xl font-bold overflow-hidden">
+                {editMode && previewUrl
+                  ? <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                  : profile.profile_picture
+                    ? <img src={profile.profile_picture} alt="Profile" className="w-full h-full object-cover" />
+                    : profile.username?.slice(0, 2).toUpperCase()
+                }
+              </div>
+              {editMode && (
+                <>
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-[#395886] text-white
+                               rounded-lg flex items-center justify-center shadow-md
+                               hover:bg-[#2f4a73] transition-colors"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                </>
+              )}
             </div>
 
+            {/* Shows saved profile values — not form values */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-bold text-gray-900">{profile.username}</h2>
@@ -200,7 +275,7 @@ export default function UserProfile() {
             </div>
 
             <button
-              onClick={() => setEditMode(!editMode)}
+              onClick={() => editMode ? handleCancelEdit() : setEditMode(true)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors
                 ${editMode
                   ? "text-gray-700 border border-gray-200 hover:bg-gray-50"
@@ -232,22 +307,22 @@ export default function UserProfile() {
 
           <div className="p-6">
 
-            {/* Profile Tab */}
+            {/* Profile Tab — uses form state */}
             {activeTab === "profile" && (
               <div className="space-y-5 max-w-md">
                 <InputField
                   label="Username"
                   icon={User}
-                  value={profile.username}
-                  onChange={e => setProfile(p => ({ ...p, username: e.target.value }))}
+                  value={form.username}
+                  onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
                   disabled={!editMode}
                 />
                 <InputField
                   label="Email Address"
                   icon={Mail}
                   type="email"
-                  value={profile.email}
-                  onChange={e => setProfile(p => ({ ...p, email: e.target.value }))}
+                  value={form.email}
+                  onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
                   disabled={!editMode}
                 />
                 <InputField
