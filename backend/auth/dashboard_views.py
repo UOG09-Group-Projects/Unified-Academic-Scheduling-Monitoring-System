@@ -3,7 +3,7 @@ from django.db.models import Count
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
-from institutions.jwt_utils import jwt_required
+#from institutions.jwt_utils import jwt_required
 from institutions.models import (
     Institution, ActivityLog,
     Course, Allocation,
@@ -19,7 +19,6 @@ from institutions.models import (
 
 @csrf_exempt
 @require_http_methods(['GET'])
-@jwt_required(roles=['OWNER', 'MANAGER', 'SUPER_ADMIN'])
 def manager_dashboard(request):
     user = request.current_user   # dict: user_id, role, institution_id, ...
 
@@ -73,7 +72,6 @@ def manager_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
-@jwt_required(roles=['SUPER_ADMIN', 'OWNER'])
 def super_admin_dashboard(request):
     total_institutions = Institution.objects.filter(is_deleted=False).count()
     total_courses      = Course.objects.filter(is_deleted=False).count()
@@ -126,7 +124,6 @@ def super_admin_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
-@jwt_required(roles=['EDUCATOR', 'SUPER_ADMIN', 'OWNER'])
 def educator_dashboard(request):
     user = request.current_user   # dict
 
@@ -177,7 +174,6 @@ def educator_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
-@jwt_required(roles=['STUDENT', 'SUPER_ADMIN', 'OWNER'])
 def student_dashboard(request):
     user = request.current_user   # dict
 
@@ -233,7 +229,6 @@ def student_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
-@jwt_required(roles=['PARENT', 'SUPER_ADMIN', 'OWNER'])
 def parent_dashboard(request):
     user = request.current_user   # dict
 

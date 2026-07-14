@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import authService from '../auth/services/authService';
 
-const TEMP_EMAIL = 'demo@lightlearn.com';
-const TEMP_PASSWORD = '123456';
+//const TEMP_EMAIL = 'demo@lightlearn.com';
+//const TEMP_PASSWORD = '123456';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -25,45 +25,58 @@ export default function LoginPage() {
 
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    setError(null);
-    setLoading(true);
+  setError(null);
+  setLoading(true);
 
-    try {
-      if (
-        form.email.trim().toLowerCase() === TEMP_EMAIL &&
-        form.password === TEMP_PASSWORD
-      ) {
-        localStorage.setItem('user', JSON.stringify({ email: TEMP_EMAIL, role: 'MANAGER' }));
-        navigate('/dashboard/manager');
-        setLoading(false);
-        return;
-      }
+  try {
+    const user = await authService.login(form.email, form.password);
 
-      const user = await authService.login(form.email, form.password);
-      const role = user?.role?.toUpperCase();
+    // Save logged in user
+    localStorage.setItem("user", JSON.stringify(user));
 
-      const destination =
-        role === 'SUPER_ADMIN' || role === 'OWNER'
-          ? '/dashboard/super-admin'
-          : role === 'MANAGER'
-            ? '/dashboard/manager'
-            : role === 'EDUCATOR'
-              ? '/dashboard/educator'
-              : role === 'STUDENT'
-                ? '/dashboard/student'
-                : role === 'PARENT'
-                  ? '/dashboard/parent'
-                  : '/dashboard/manager';
+    const role = user.role.toLowerCase();
 
-      navigate(destination);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Invalid email or password.');
-    } finally {
-      setLoading(false);
+    switch (role) {
+      case "owner":
+        navigate("/dashboard/owner");
+        break;
+
+      case "admin":
+        navigate("/dashboard/super-admin");
+        break;
+
+      case "manager":
+        navigate("/dashboard/manager");
+        break;
+
+      case "educator":
+        navigate("/dashboard/educator");
+        break;
+
+      case "student":
+        navigate("/dashboard/student");
+        break;
+
+      case "parent":
+        navigate("/dashboard/parent");
+        break;
+
+      default:
+        navigate("/");
     }
-  };
+
+  } catch (err) {
+    setError(
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      "Invalid email or password."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   return (

@@ -2,6 +2,7 @@ from django.db import transaction
 from institutions.models import Student, Guardian, StudentGuardian
 from institutions.models import User
 from institutions.models import ActivityLog
+from institutions.models import Role
 
 class StudentService:
 
@@ -27,10 +28,13 @@ class StudentService:
             )
 
         # Create login user account for the student
+        student_role, _ = Role.objects.get_or_create(name='STUDENT')
         user = User(
             username=data.get('email'),
             email=data.get('email'),
-            role='STUDENT',
+            role=student_role,
+            is_active=True,
+            is_email_verified=True,
         )
         user.set_password(data.get('password', data.get('registration_no')))
         user.save()
@@ -140,10 +144,14 @@ class StudentService:
     @transaction.atomic
     def create_guardian(data):
         # Create login user account for the guardian
+        # create_guardian — fix
+        parent_role, _ = Role.objects.get_or_create(name='PARENT')
         user = User(
-            username = data.get('email', data.get('name')),
-            email    = data.get('email', ''),
-            role     = 'PARENT',
+            username=data.get('email', data.get('name')),
+            email=data.get('email', ''),
+            role=parent_role,
+            is_active=True,
+            is_email_verified=True,
         )
         user.set_password(data.get('password', 'guardian123'))
         user.save()

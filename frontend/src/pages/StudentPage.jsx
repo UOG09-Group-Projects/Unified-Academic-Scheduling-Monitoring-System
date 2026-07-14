@@ -3,9 +3,7 @@ import StudentForm from "../components/StudentForm";
 import StudentTable from '../components/StudentTable';
 import ViewStudentModal from '../components/ViewStudentModal';
 import studentService from "../services/studentService";
-import axios from 'axios';
-
-const BATCHES_API = 'http://localhost:8000/api/batches/';
+import batchService from '../services/batchService';
 
 const StudentPage = () => {
   const [students, setStudents] = useState([]);
@@ -18,13 +16,13 @@ const StudentPage = () => {
   // Fetch batches
   // =========================
   const fetchBatches = async () => {
-    try {
-      const res = await axios.get(BATCHES_API);
-      setBatches(res.data);
-    } catch (err) {
-      console.error('Batch fetch error:', err);
-    }
-  };
+  try {
+    const data = await batchService.getAll();
+    setBatches(data);
+  } catch (err) {
+    console.error('Batch fetch error:', err);
+  }
+};
 
   // =========================
   // Fetch students

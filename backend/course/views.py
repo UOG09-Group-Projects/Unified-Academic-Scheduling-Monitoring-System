@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework.views import APIView
+from institutions.views import JWTView
 from rest_framework.response import Response
 from rest_framework import status
 from institutions.models import Course
@@ -7,7 +7,7 @@ from .serializers import CourseSerializer
 from .services import CourseService
 
 
-class CourseListView(APIView):
+class CourseListView(JWTView):
 
     def get(self, request):
         search = request.query_params.get('search', '')
@@ -26,7 +26,7 @@ class CourseListView(APIView):
 
     def post(self, request):
         try:
-            course = CourseService.create_course(request.data, request.user)
+            course = CourseService.create_course(request.data, request.current_user)
             serializer = CourseSerializer(course)
             return Response(
                 {'message': 'Course created successfully.', 'data': serializer.data},
@@ -35,7 +35,7 @@ class CourseListView(APIView):
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-class CourseDetailView(APIView):
+class CourseDetailView(JWTView):
 
     def get(self, request, pk):
         try:
@@ -47,7 +47,7 @@ class CourseDetailView(APIView):
 
     def put(self, request, pk):
         try:
-            course = CourseService.update_course(pk, request.data, request.user)
+            course = CourseService.update_course(pk, request.data, request.current_user)
             serializer = CourseSerializer(course)
             return Response(
                 {'message': 'Course updated successfully.', 'data': serializer.data}

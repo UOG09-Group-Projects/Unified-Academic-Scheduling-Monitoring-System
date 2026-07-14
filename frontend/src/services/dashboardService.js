@@ -27,6 +27,7 @@ const dashboardService = {
   getEducatorDashboard:   () => client.get('/dashboard/educator/').then(r => r.data),
   getStudentDashboard:    () => client.get('/dashboard/student/').then(r => r.data),
   getParentDashboard:     () => client.get('/dashboard/parent/').then(r => r.data),
+  getOwnerDashboard:      () => client.get('/dashboard/owner/').then(r => r.data),
 
   getEducatorDetail: (educatorId) =>
     client.get(`/educators/${educatorId}/`).then(r => r.data),

@@ -1,8 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
-from .models import Institution
+from django.http import JsonResponse as DjangoJsonResponse
+import json
+from .models import Institution, User
 from .serializers import InstitutionListSerializer
 from .services import InstitutionService
 from .jwt_utils import decode_token
@@ -16,7 +17,7 @@ import jwt
 # ---------------------------------------------------------------------------
 
 class JWTView(APIView):
-    allowed_roles = None   # None = any authenticated user
+    allowed_roles = None
 
     def dispatch(self, request, *args, **kwargs):
         token = request.COOKIES.get('access_token')
@@ -27,40 +28,37 @@ class JWTView(APIView):
                 token = auth_header.split(' ', 1)[1]
 
         if not token:
-            return Response(
+            return DjangoJsonResponse(
                 {'error': 'Authentication required.'},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=401
             )
 
         try:
             payload = decode_token(token)
         except jwt.ExpiredSignatureError:
-            return Response(
-                {'error': 'Token expired.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return DjangoJsonResponse({'error': 'Token expired.'}, status=401)
         except jwt.InvalidTokenError:
-            return Response(
-                {'error': 'Invalid token.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return DjangoJsonResponse({'error': 'Invalid token.'}, status=401)
 
         if payload.get('token_type') != 'access':
-            return Response(
-                {'error': 'Invalid token type.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return DjangoJsonResponse({'error': 'Invalid token type.'}, status=401)
 
         if self.allowed_roles:
             user_role = payload.get('role', '').upper()
-            allowed   = [r.upper() for r in self.allowed_roles]
+            allowed = [r.upper() for r in self.allowed_roles]
             if user_role not in allowed:
-                return Response(
-                    {'error': 'Permission denied.'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
+                return DjangoJsonResponse({'error': 'Permission denied.'}, status=403)
 
-        request.current_user = payload
+        try:
+            user = User.objects.select_related('role').get(id=payload['user_id'])
+        except User.DoesNotExist:
+            return DjangoJsonResponse({'error': 'User not found.'}, status=401)
+
+        # Attach institution_id from JWT payload so services can read it
+        # without an extra DB query
+        user.institution_id = payload.get('institution_id')
+
+        request.current_user = user
         return super().dispatch(request, *args, **kwargs)
 
 
@@ -87,8 +85,8 @@ class InstitutionListCreateView(JWTView):
         data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
         logo = request.FILES.get('logo')
 
-        # current_user is a dict now, not a User object
-        data['owner_id'] = request.current_user['user_id']
+        # current_user is now a real User object
+        data['owner_id'] = request.current_user.id
 
         try:
             institution = InstitutionService.create_institution(

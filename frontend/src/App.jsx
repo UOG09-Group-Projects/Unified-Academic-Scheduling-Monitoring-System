@@ -17,12 +17,13 @@ import EducatorDashboard from './pages/EducatorDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import ParentDashboard from './pages/ParentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
-
+import OwnerDashboard from "./pages/OwnerDashboard";
 import Institutions from "./pages/superadmin/Institutions";
 import Profile from "./pages/superadmin/Profile";
 import Settings from "./pages/superadmin/Settings";
 import ManagerManagement from './pages/ManagerManagement';
 import Home from './pages/Home';
+import RoleForm from './components/roles/RoleForm';
 
 
 function App() {
@@ -60,6 +61,8 @@ function App() {
             path="/dashboard/student" 
             element={<StudentDashboard />} 
           />
+
+          <Route path="/dashboard/owner" element={<OwnerDashboard />} />
 
           <Route 
             path="/dashboard/parent" 
@@ -110,6 +113,8 @@ function App() {
             path="/superadmin/settings" 
             element={<Settings />} 
           />
+
+          <Route path="/roles" element={<RoleForm/>} />
 
         </Route>
 

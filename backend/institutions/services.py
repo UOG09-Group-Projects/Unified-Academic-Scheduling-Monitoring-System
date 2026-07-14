@@ -2,6 +2,7 @@ from django.db import transaction
 from .models import Institution, User
 from .serializers import InstitutionCreateSerializer, InstitutionUpdateSerializer
 from .models import ActivityLog
+from .models import Institution, User, Role
 
 class InstitutionService:
 
@@ -20,9 +21,14 @@ class InstitutionService:
         if User.objects.filter(username=validated['username']).exists():
             raise ValueError("Username already exists")
 
+        owner_role, _ = Role.objects.get_or_create(name='OWNER')
+
         user = User.objects.create(
             username=validated['username'],
-            email=validated['email']
+            email=validated['email'],
+            role=owner_role,
+            is_active=True,
+            is_email_verified=True,
         )
         user.set_password(validated['password'])
         user.save()

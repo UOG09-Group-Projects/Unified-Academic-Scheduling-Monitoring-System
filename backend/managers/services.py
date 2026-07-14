@@ -1,7 +1,7 @@
 from django.db import transaction
 from institutions.models import Manager
 from institutions.models import Institution, User
-
+from institutions.models import Role
 
 class ManagerService:
 
@@ -27,16 +27,14 @@ class ManagerService:
             raise ValueError("Institution does not exist.")
 
         # Create login user
+        manager_role, _ = Role.objects.get_or_create(name='MANAGER')
         user = User(
             username=email,
             email=email,
-            role="MANAGER",
+            role=manager_role,
             is_active=True,
             is_email_verified=True,
         )
-
-        user.set_password(password)
-        user.save()
 
         # Create manager profile
         manager = Manager.objects.create(

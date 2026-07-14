@@ -1,52 +1,34 @@
-const API_BASE = 'http://localhost:8000/api';
+import axios from 'axios';
+
+const client = axios.create({
+  baseURL: 'http://localhost:8000/api',
+  withCredentials: true,
+});
 
 export const batchService = {
 
   getAll: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${API_BASE}/batches/?${query}`, {
-      credentials: 'include',
-    });
-    if (!res.ok) throw new Error('Failed to fetch batches');
-    return res.json();
+    const res = await client.get('/batches/', { params });
+    return res.data;
   },
 
   getById: async (id) => {
-    const res = await fetch(`${API_BASE}/batches/${id}/`, {
-      credentials: 'include',
-    });
-    if (!res.ok) throw new Error('Failed to fetch batch');
-    return res.json();
+    const res = await client.get(`/batches/${id}/`);
+    return res.data;
   },
 
   create: async (data) => {
-    const res = await fetch(`${API_BASE}/batches/`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to create batch');
-    return res.json();
+    const res = await client.post('/batches/', data);
+    return res.data;
   },
 
   update: async (id, data) => {
-    const res = await fetch(`${API_BASE}/batches/${id}/`, {
-      method: 'PUT',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to update batch');
-    return res.json();
+    const res = await client.put(`/batches/${id}/`, data);
+    return res.data;
   },
 
   delete: async (id) => {
-    const res = await fetch(`${API_BASE}/batches/${id}/`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    if (!res.ok) throw new Error('Failed to delete batch');
+    await client.delete(`/batches/${id}/`);
   },
 };
 

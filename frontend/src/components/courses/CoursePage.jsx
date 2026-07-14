@@ -33,21 +33,21 @@ export default function CoursePage() {
 
   // ── Effect 2: Load batches + educators filtered by user's institution ──
   useEffect(() => {
-    if (!user?.institution_id) return;
+  const params = user?.institution_id
+    ? { institution_id: user.institution_id }
+    : {};  // ← no filter for super admin, loads everything
 
-    const params = { institution_id: user.institution_id };
+  Promise.all([
+    lookupService.listBatches(params),
+    lookupService.listEducators(params),
+  ])
+    .then(([batches, educators]) => {
+      setAllBatches(batches);
+      setAllEducators(educators);
+    })
+    .catch(() => showToast('Failed to load form data.', 'error'));
 
-    Promise.all([
-      lookupService.listBatches(params),
-      lookupService.listEducators(params),
-    ])
-      .then(([batches, educators]) => {
-        setAllBatches(batches);
-        setAllEducators(educators);
-      })
-      .catch(() => showToast('Failed to load form data.', 'error'));
-
-  }, [user?.institution_id]);
+}, [user?.institution_id]);
 
   // ── Effect 3: Load courses, re-runs when search changes ──
   useEffect(() => {

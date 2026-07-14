@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from institutions.models import Educator
 from .serializers import EducatorSerializer
 from institutions.models import User
-
+from django.http import JsonResponse
 
 class EducatorViewSet(viewsets.ModelViewSet):
     queryset = Educator.objects.all().order_by('-created_at')
@@ -38,9 +38,12 @@ class EducatorViewSet(viewsets.ModelViewSet):
 
         # Create the User account
         try:
+            from institutions.models import Role
+            educator_role, _ = Role.objects.get_or_create(name='EDUCATOR')
             user = User(
-                username=email,  # use email as username
+                username=email,
                 email=email,
+                role=educator_role,
                 is_active=True,
                 is_email_verified=True,
             )
