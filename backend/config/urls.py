@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/institutions/', include('institutions.urls')),
     path('api/', include('batches.urls')),
     path('api/auth/', include('auth.urls')),
+    path('api/user/', include('accounts.urls')),
     # merged feature
     path('api/', include('course.urls')),
     path('api/', include('educators.urls')),

@@ -24,6 +24,8 @@ import Settings from "./pages/superadmin/Settings";
 import ManagerManagement from './pages/ManagerManagement';
 import Home from './pages/Home';
 import RoleForm from './components/roles/RoleForm';
+import UserProfile from './pages/UserProfile';
+
 
 
 function App() {
@@ -113,6 +115,9 @@ function App() {
             path="/superadmin/settings" 
             element={<Settings />} 
           />
+          <Route 
+            path="/profile" 
+            element={<UserProfile />} />
 
           <Route path="/roles" element={<RoleForm/>} />
 
