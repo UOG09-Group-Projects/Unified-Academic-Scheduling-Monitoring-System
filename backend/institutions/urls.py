@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import InstitutionListCreateView, InstitutionDetailView
+from .views import InstitutionListCreateView, InstitutionDetailView, InstitutionPublicListView
 from institutions import role_views
 
 urlpatterns = [
+    path('public/', InstitutionPublicListView.as_view(), name='institution-public-list'),
     path('', InstitutionListCreateView.as_view(), name='institution-list-create'),
     path('<int:pk>/', InstitutionDetailView.as_view(), name='institution-detail'),
 

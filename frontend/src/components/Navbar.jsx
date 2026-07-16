@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
-import { ShieldCheck, GraduationCap } from "lucide-react";
+import { motion } from "framer-motion";
+import { GraduationCap, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Button from "./ui/Button";
+
 const NAV_LINKS = [
   { label: "Home", href: "#home" },
   { label: "Features", href: "#features" },
@@ -11,81 +14,106 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [active, setActive] = useState("home");
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
-
       const sections = document.querySelectorAll("section[id]");
       let current = "";
-
       sections.forEach((s) => {
-        if (window.scrollY >= s.offsetTop - 100) {
-          current = s.id;
-        }
+        if (window.scrollY >= s.offsetTop - 120) current = s.id;
       });
-
       if (current) setActive(current);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-[5%] h-[68px] transition-all duration-300 backdrop-blur-md border-b border-white/10 ${
+    <motion.nav
+      initial={{ y: -24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-[5%] h-[68px] transition-all duration-300 ${
         scrolled
-          ? "bg-[#0F172A]/95 shadow-lg shadow-black/20"
-          : "bg-[#0F172A]/90"
+          ? "bg-paper/90 backdrop-blur-md border-b border-ink/[0.06] shadow-soft"
+          : "bg-transparent border-b border-transparent"
       }`}
     >
-      {/* Logo */}
-      <a
-        href="#home"
-        className="flex items-center gap-2 text-[1.35rem] font-extrabold tracking-tight text-white no-underline"
-      >
-        <span className="inline-block w-2 h-2 rounded-full bg-[#4ADE80]" />
-        LightLearn
+      <a href="#home" className="flex items-center gap-2 no-underline">
+        <span className="w-8 h-8 rounded-lg bg-ocean-gradient flex items-center justify-center shadow-ocean-glow">
+          <GraduationCap size={16} strokeWidth={2.4} className="text-white" />
+        </span>
+        <span className="font-display text-[1.2rem] font-bold tracking-tight text-ink">
+          LightLearn
+        </span>
       </a>
 
-      {/* Navigation Links */}
-      <ul className="hidden md:flex items-center gap-9 list-none">
+      <ul className="hidden md:flex items-center gap-8 list-none">
         {NAV_LINKS.map(({ label, href }) => (
-          <li key={label}>
+          <li key={label} className="relative">
             <a
               href={href}
-              className={`text-sm font-medium tracking-wide transition-colors duration-200 no-underline ${
-                active === href.replace("#", "")
-                  ? "text-white"
-                  : "text-white/70 hover:text-white"
+              className={`text-sm font-medium transition-colors duration-200 no-underline ${
+                active === href.replace("#", "") ? "text-ink" : "text-ink-faint hover:text-ink"
               }`}
             >
               {label}
             </a>
+            {active === href.replace("#", "") && (
+              <motion.span
+                layoutId="nav-underline"
+                className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-ocean-gradient rounded-full"
+              />
+            )}
           </li>
         ))}
       </ul>
 
-      {/* Buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={() => navigate("/login")}
-          className="flex items-center gap-2 px-4 py-2 rounded-md border border-[#4ADE80] text-[#4ADE80] font-semibold text-sm transition-all duration-200 hover:bg-[#4ADE80] hover:text-[#0F172A]"
-        >
-          <ShieldCheck size={16} />
-          Admin
-        </button>
-
-        <button
-          onClick={() => navigate("/student")}
-          className="flex items-center gap-2 px-4 py-2 rounded-md bg-[#2563EB] border border-[#2563EB] text-white font-semibold text-sm transition-all duration-200 hover:bg-[#3B82F6] hover:border-[#3B82F6]"
-        >
-          <GraduationCap size={16} />
-          Student Sign Up
-        </button>
+      <div className="hidden md:flex gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
+          Sign in
+        </Button>
+        <Button variant="ocean" size="sm" onClick={() => navigate("/login")}>
+          Get started
+        </Button>
       </div>
-    </nav>
+
+      <button
+        onClick={() => setMobileOpen((o) => !o)}
+        className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-ink"
+      >
+        {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+      </button>
+
+      {mobileOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="md:hidden absolute top-[68px] left-0 right-0 bg-paper border-b border-ink/[0.06] shadow-lift px-[5%] py-5 flex flex-col gap-4"
+        >
+          {NAV_LINKS.map(({ label, href }) => (
+            <a
+              key={label}
+              href={href}
+              onClick={() => setMobileOpen(false)}
+              className="text-sm font-medium text-ink-soft no-underline"
+            >
+              {label}
+            </a>
+          ))}
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate("/login")}>
+              Sign in
+            </Button>
+            <Button variant="ocean" size="sm" className="flex-1" onClick={() => navigate("/login")}>
+              Get started
+            </Button>
+          </div>
+        </motion.div>
+      )}
+    </motion.nav>
   );
 }

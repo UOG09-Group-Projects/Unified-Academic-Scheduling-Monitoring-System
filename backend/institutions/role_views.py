@@ -1,100 +1,74 @@
-import json
-from django.http import JsonResponse
-from django.views import View
 from django.db import transaction
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-from institutions.models import Role, Permission, RolePermission, Module
-from institutions.jwt_utils import jwt_required
+from rest_framework.response import Response
+from rest_framework import status
+from institutions.models import Role, RolePermission, Module
+from institutions.views import JWTView
+
 
 def _role_to_dict(role):
-
-    perms = RolePermission.objects.filter(
-        role_id=role.id
-    ).select_related("permission")
-
+    perms = RolePermission.objects.filter(role_id=role.id).select_related("permission")
     return {
         "id": role.id,
         "name": role.name,
-        "permissions": [
-            rp.permission_id
-            for rp in perms
-        ],
+        "permissions": [rp.permission_id for rp in perms],
     }
 
-@method_decorator(csrf_exempt, name="dispatch")
-class PermissionListView(View):
+
+class PermissionListView(JWTView):
     """GET /api/institutions/permissions/ — grouped by module"""
+    permission_map = {'GET': 'view_role'}
 
     def get(self, request):
-
-        modules = Module.objects.prefetch_related(
-            "permissions"
-        ).all()
+        modules = Module.objects.prefetch_related("permissions").all()
         data = []
 
         for module in modules:
             perms = module.permissions.all()
-
             if perms.exists():
                 data.append({
                     "module": module.name,
-                    "permissions": [
-                        {
-                            "id": p.id,
-                            "name": p.name
-                        }
-                        for p in perms
-                    ],
+                    "permissions": [{"id": p.id, "name": p.name} for p in perms],
                 })
 
-        return JsonResponse(data, safe=False)
+        return Response(data)
 
-@method_decorator(csrf_exempt, name="dispatch")
-class RoleListCreateView(View):
+
+class RoleListCreateView(JWTView):
     """
-    GET  /api/roles/      — list all roles with their permission ids
-    POST /api/roles/      — create a new role with permissions
+    GET  /api/institutions/roles/  — list all roles with their permission ids
+    POST /api/institutions/roles/  — create a new role with permissions
     """
+    permission_map = {'GET': 'view_role', 'POST': 'create_role'}
 
     def get(self, request):
         roles = Role.objects.all()
-        return JsonResponse([_role_to_dict(r) for r in roles], safe=False)
+        return Response([_role_to_dict(r) for r in roles])
 
+    @transaction.atomic
     def post(self, request):
-        try:
-            body = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-        name = body.get("name", "").strip()
-        permission_ids = body.get("permissions", [])
+        name = (request.data.get("name") or "").strip()
+        permission_ids = request.data.get("permissions", [])
 
         if not name:
-            return JsonResponse({"error": "Role name is required"}, status=400)
+            return Response({"error": "Role name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         if Role.objects.filter(name__iexact=name).exists():
-            return JsonResponse({"error": f"Role '{name}' already exists"}, status=409)
+            return Response({"error": f"Role '{name}' already exists"}, status=status.HTTP_409_CONFLICT)
 
-        with transaction.atomic():
-            role = Role.objects.create(name=name)
+        role = Role.objects.create(name=name)
+        for pid in permission_ids:
+            RolePermission.objects.create(role_id=role.id, permission_id=pid)
 
-            for pid in permission_ids:
-                RolePermission.objects.create(
-                    role_id=role.id,
-                    permission_id=pid
-        )
+        return Response(_role_to_dict(role), status=status.HTTP_201_CREATED)
 
-        return JsonResponse(_role_to_dict(role), status=201)
-    
 
-@method_decorator(csrf_exempt, name="dispatch")
-class RoleDetailView(View):
+class RoleDetailView(JWTView):
     """
-    GET    /api/roles/<pk>/  — get single role
-    PUT    /api/roles/<pk>/  — update role name + permissions (full replace)
-    DELETE /api/roles/<pk>/  — delete role
+    GET    /api/institutions/roles/<pk>/  — get single role
+    PUT    /api/institutions/roles/<pk>/  — update role name + permissions (full replace)
+    DELETE /api/institutions/roles/<pk>/  — delete role
     """
+    permission_map = {'GET': 'view_role', 'PUT': 'edit_role', 'DELETE': 'delete_role'}
 
     def _get_role(self, pk):
         try:
@@ -105,52 +79,33 @@ class RoleDetailView(View):
     def get(self, request, pk):
         role = self._get_role(pk)
         if not role:
-            return JsonResponse({"error": "Not found"}, status=404)
-        return JsonResponse(_role_to_dict(role))
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(_role_to_dict(role))
 
+    @transaction.atomic
     def put(self, request, pk):
         role = self._get_role(pk)
-
         if not role:
-            return JsonResponse({"error": "Not found"}, status=404)
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        try:
-            body = json.loads(request.body)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-        name = body.get("name", "").strip()
-        permission_ids = body.get("permissions", [])
+        name = (request.data.get("name") or "").strip()
+        permission_ids = request.data.get("permissions", [])
 
         if not name:
-            return JsonResponse(
-                {"error": "Role name is required"},
-                status=400
-            )
+            return Response({"error": "Role name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():
+        role.name = name
+        role.save()
 
-            role.name = name
-            role.save()
+        RolePermission.objects.filter(role_id=role.id).delete()
+        for pid in permission_ids:
+            RolePermission.objects.create(role_id=role.id, permission_id=pid)
 
-            # remove old permissions
-            RolePermission.objects.filter(
-                role_id=role.id
-            ).delete()
-
-            # add new permissions
-            for pid in permission_ids:
-                RolePermission.objects.create(
-                    role_id=role.id,
-                    permission_id=pid
-                )
-
-        return JsonResponse(_role_to_dict(role))
-
+        return Response(_role_to_dict(role))
 
     def delete(self, request, pk):
         role = self._get_role(pk)
         if not role:
-            return JsonResponse({"error": "Not found"}, status=404)
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         role.delete()
-        return JsonResponse({"deleted": True})
+        return Response({"deleted": True})

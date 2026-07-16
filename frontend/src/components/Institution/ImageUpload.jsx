@@ -1,6 +1,7 @@
 // src/components/Institution/ImageUpload.jsx
-
 import { useRef } from 'react';
+import { ImagePlus } from 'lucide-react';
+import Button from '../ui/Button';
 
 const ImageUpload = ({ preview, onImageChange, onClear }) => {
   const fileInputRef = useRef(null);
@@ -12,47 +13,29 @@ const ImageUpload = ({ preview, onImageChange, onClear }) => {
 
   return (
     <div className="mb-4">
-      <label className="block text-xs font-medium text-gray-600 mb-2">
-        Logo
-      </label>
+      <label className="block text-xs font-semibold text-ink-soft tracking-wide mb-2">Logo</label>
 
-      <div className="w-36 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-3 overflow-hidden bg-gray-50">
+      <div className="w-36 h-24 border-2 border-dashed border-ink/15 rounded-lg flex items-center justify-center mb-3 overflow-hidden bg-ink/[0.02]">
         {preview ? (
-          <img
-            src={preview}
-            alt="Preview"
-            className="w-full h-full object-cover"
-          />
+          <img src={preview} alt="Preview" className="w-full h-full object-cover" />
         ) : (
-          <span className="text-xs text-gray-400">Image preview</span>
+          <span className="text-xs text-ink-faint flex flex-col items-center gap-1">
+            <ImagePlus size={16} />
+            Image preview
+          </span>
         )}
       </div>
 
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current.click()}
-          className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-gray-600"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current.click()}>
           Choose image
-        </button>
-
-        <button
-          type="button"
-          onClick={onClear}
-          className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-gray-500"
-        >
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onClear}>
           Clear
-        </button>
+        </Button>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
     </div>
   );
 };

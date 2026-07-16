@@ -7,6 +7,7 @@ from .models import Institution, User
 from .serializers import InstitutionListSerializer
 from .services import InstitutionService
 from .jwt_utils import decode_token
+from .access import load_permissions, has_permission, resolve_institution_id, scoped_institution_filter, is_institution_allowed
 import jwt
 
 
@@ -14,10 +15,15 @@ import jwt
 # Base class — replaces ProtectedView
 # Reads the access_token cookie, decodes it, sets request.current_user.
 # Override allowed_roles = [...] in subclasses to restrict by role.
+# Override permission_map = {'GET': 'view_x', 'POST': 'create_x', ...} to
+# additionally require a specific permission (from roles_permissions) per
+# HTTP method — checked after allowed_roles, before the view method runs.
+# SUPER_ADMIN always bypasses both checks.
 # ---------------------------------------------------------------------------
 
 class JWTView(APIView):
     allowed_roles = None
+    permission_map = None
 
     def dispatch(self, request, *args, **kwargs):
         token = request.COOKIES.get('access_token')
@@ -57,6 +63,12 @@ class JWTView(APIView):
         # Attach institution_id from JWT payload so services can read it
         # without an extra DB query
         user.institution_id = payload.get('institution_id')
+        user.permissions = load_permissions(user)
+
+        if self.permission_map:
+            required = self.permission_map.get(request.method)
+            if required and not has_permission(user, required):
+                return DjangoJsonResponse({'error': 'Permission denied.'}, status=403)
 
         request.current_user = user
         return super().dispatch(request, *args, **kwargs)
@@ -66,13 +78,35 @@ class JWTView(APIView):
 # Institution views
 # ---------------------------------------------------------------------------
 
-class InstitutionListCreateView(JWTView):
-    allowed_roles = ['SUPER_ADMIN', 'OWNER', 'MANAGER']
+class InstitutionPublicListView(APIView):
+    """
+    Public, unauthenticated: the institution picker on the student signup
+    page. Deliberately exposes only id/name — nothing sensitive.
+    """
 
     def get(self, request):
-        institutions = Institution.objects.filter(
-            is_deleted=False
-        ).select_related('owner')
+        institutions = Institution.objects.filter(is_deleted=False).order_by('name')
+        return Response([{'id': i.id, 'name': i.name} for i in institutions])
+
+
+class InstitutionListCreateView(JWTView):
+    allowed_roles = ['SUPER_ADMIN', 'OWNER', 'MANAGER']
+    # No create_institution/delete_institution permission exists in the
+    # permissions table yet — POST stays gated by allowed_roles only.
+    # GET is authorized manually below: view_institution holders get the
+    # full (role-scoped) list; everyone else (MANAGER/EDUCATOR/STUDENT —
+    # whose forms need to know their *own* institution for dropdowns, even
+    # without the staff browsing permission) gets just their own institution.
+
+    def get(self, request):
+        user = request.current_user
+        institutions = Institution.objects.filter(is_deleted=False).select_related('owner')
+
+        if has_permission(user, 'view_institution'):
+            institutions = institutions.filter(**scoped_institution_filter(user, field='id'))
+        else:
+            inst_id = resolve_institution_id(user)
+            institutions = institutions.filter(id=inst_id) if inst_id else institutions.none()
 
         serializer = InstitutionListSerializer(
             institutions,
@@ -108,6 +142,9 @@ class InstitutionListCreateView(JWTView):
 
 class InstitutionDetailView(JWTView):
     allowed_roles = ['SUPER_ADMIN', 'OWNER', 'MANAGER']
+    # No delete_institution permission exists yet — DELETE stays
+    # gated by allowed_roles only. GET is authorized manually (see below).
+    permission_map = {'PUT': 'edit_institution'}
 
     def get_object(self, pk):
         try:
@@ -124,6 +161,15 @@ class InstitutionDetailView(JWTView):
                 {'error': 'Institution not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+        user = request.current_user
+        can_view = has_permission(user, 'view_institution') or is_institution_allowed(user, institution.id)
+        if not can_view:
+            return Response(
+                {'error': 'Institution not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         serializer = InstitutionListSerializer(
             institution, context={'request': request}
         )

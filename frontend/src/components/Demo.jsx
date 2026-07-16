@@ -1,75 +1,86 @@
-import { ShieldCheck, GraduationCap, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { GraduationCap, Presentation, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import Card from "./ui/Card";
+import Button from "./ui/Button";
 
-export default function Demo({ openAdmin, openStudent }) {
+const PORTALS = [
+  {
+    icon: Presentation,
+    tone: "bg-brand-50 text-brand-600",
+    role: "For educators",
+    title: "Plan and publish in minutes",
+    desc: "Schedule classes, assignments and exams for your courses. Students see updates the moment you publish.",
+    points: ["Course-scoped calendar events", "Batch & allocation overview", "Instant sync to every student"],
+  },
+  {
+    icon: GraduationCap,
+    tone: "bg-accent-50 text-accent-600",
+    role: "For students",
+    title: "One calendar for everything",
+    desc: "Every enrolled course's schedule plus your own personal reminders, always current, always in one view.",
+    points: ["Live course schedule", "Personal study reminders", "No missed deadlines"],
+  },
+];
+
+export default function Demo() {
+  const navigate = useNavigate();
+
   return (
-    <section
-      id="demo"
-      className="relative py-24 px-[5%] bg-navy text-center overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-grid-pattern-demo pointer-events-none" />
-
-      <div className="relative z-10">
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-mint mb-4">
-          Live Demo Access
-        </p>
-        <h2 className="font-syne font-bold text-[clamp(1.9rem,3.5vw,2.8rem)] leading-[1.15] tracking-[-0.5px] text-white mb-3">
+    <section id="demo" className="py-28 px-[5%] bg-paper-soft">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.5 }}
+        className="text-center mb-16"
+      >
+        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
           Two roles, one platform
-        </h2>
-        <p className="text-[1.05rem] text-white/55 max-w-[560px] mx-auto leading-[1.7] mb-12">
-          Explore SchedEdu from both sides. Log in as a Super Admin to manage
-          the full system, or create a student account to experience enrollment
-          firsthand.
         </p>
+        <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4">
+          Built around how you actually work
+        </h2>
+      </motion.div>
 
-        <div className="flex gap-6 justify-center flex-wrap">
-          {/* Admin Card */}
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-9 w-[300px] text-left transition-all duration-200 hover:border-white/20 hover:bg-white/[0.07]">
-            <div className="flex items-center gap-2 mb-5">
-              <ShieldCheck size={16} className="text-mint" />
-              <span className="text-[0.68rem] font-bold tracking-[0.1em] uppercase text-mint">
-                Admin Access
-              </span>
-            </div>
-            <h3 className="font-syne font-bold text-[1.2rem] text-white mb-2">
-              Super Admin
-            </h3>
-            <p className="text-[0.865rem] text-white/50 leading-[1.65] mb-7">
-              Access the full control panel — manage courses, rooms, faculty,
-              and system-wide settings with pre-loaded demo data.
-            </p>
-            <button
-              onClick={openAdmin}
-              className="flex items-center justify-center gap-2 w-full py-3.5 bg-transparent border-[1.5px] border-mint text-mint font-semibold text-sm rounded-lg tracking-wide transition-colors duration-200 hover:bg-mint hover:text-navy cursor-pointer"
-            >
-              Login as Super Admin
-              <ArrowRight size={14} />
-            </button>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[1000px] mx-auto">
+        {PORTALS.map(({ icon: Icon, tone, role, title, desc, points }, i) => (
+          <motion.div
+            key={role}
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.5, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Card hover padding="p-9" className="h-full flex flex-col">
+              <div className={`w-12 h-12 ${tone} rounded-xl flex items-center justify-center mb-5`}>
+                <Icon size={22} />
+              </div>
+              <p className="text-xs font-semibold tracking-wide uppercase text-ink-faint mb-2">{role}</p>
+              <h3 className="font-display font-bold text-xl text-ink mb-2.5">{title}</h3>
+              <p className="text-sm text-ink-faint leading-relaxed mb-5">{desc}</p>
 
-          {/* Student Card */}
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-9 w-[300px] text-left transition-all duration-200 hover:border-white/20 hover:bg-white/[0.07]">
-            <div className="flex items-center gap-2 mb-5">
-              <GraduationCap size={16} className="text-cobalt-light" />
-              <span className="text-[0.68rem] font-bold tracking-[0.1em] uppercase text-cobalt-light">
-                Student Access
-              </span>
-            </div>
-            <h3 className="font-syne font-bold text-[1.2rem] text-white mb-2">
-              Student Account
-            </h3>
-            <p className="text-[0.865rem] text-white/50 leading-[1.65] mb-7">
-              Create a free demo student account and experience course browsing,
-              timetable viewing, and enrollment.
-            </p>
-            <button
-              onClick={openStudent}
-              className="flex items-center justify-center gap-2 w-full py-3.5 bg-cobalt border-[1.5px] border-cobalt text-white font-semibold text-sm rounded-lg tracking-wide transition-colors duration-200 hover:bg-cobalt-light hover:border-cobalt-light cursor-pointer"
-            >
-              Create Student Account
-              <ArrowRight size={14} />
-            </button>
-          </div>
-        </div>
+              <ul className="flex flex-col gap-2 mb-7 mt-auto">
+                {points.map((p) => (
+                  <li key={p} className="flex items-center gap-2 text-sm text-ink-soft">
+                    <span className="w-1.5 h-1.5 rounded-full bg-ocean-600 shrink-0" />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+
+              <Button
+                variant="outline"
+                size="md"
+                icon={ArrowRight}
+                className="flex-row-reverse self-start"
+                onClick={() => navigate("/login")}
+              >
+                Try it
+              </Button>
+            </Card>
+          </motion.div>
+        ))}
       </div>
     </section>
   );

@@ -6,15 +6,14 @@ const client = axios.create({
   withCredentials: true, // sends httpOnly cookie automatically on every request
 });
 
-// Redirect to login on 401 only for real backend-auth flows.
-// The temporary frontend-only demo login does not have a backend session,
-// so skip the redirect to keep the dashboard usable locally.
+// Session expired or invalid — clear local state and send the user back to login.
 client.interceptors.response.use(
   response => response,
   error => {
-    const isDemoLogin = localStorage.getItem('user')?.includes('demo@lightlearn.com');
-    if (error.response?.status === 401 && !isDemoLogin) {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
       localStorage.removeItem('user');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -35,6 +34,11 @@ const dashboardService = {
   getCalendarEvents: (year, month) =>
     client.get('/calendar/events/', {
       params: { year, month },
+    }).then(r => r.data),
+
+  getParentMonthlyReport: (studentId, year, month) =>
+    client.get('/dashboard/parent/report/', {
+      params: { student_id: studentId, year, month },
     }).then(r => r.data),
 };
 

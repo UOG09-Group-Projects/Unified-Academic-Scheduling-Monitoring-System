@@ -1,18 +1,31 @@
-import { useState, useEffect} from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Building2, UserCircle2 } from 'lucide-react';
 import InstitutionForm from './InstitutionForm';
 import InstitutionTable from './InstitutionTable';
-import ViewInstitutionModal from './ViewInstitutionModal';
 import { getAllInstitutions, deleteInstitution } from '../../services/institutionService';
+import PageHeader from '../ui/PageHeader';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+import Modal from '../ui/Modal';
+import ConfirmDialog from '../ui/ConfirmDialog';
+import StatCard from '../StatCard';
+import { SkeletonRows } from '../ui/Skeleton';
+import { useToast } from '../ui/Toast';
+import { usePermissions } from '../../auth/PermissionsContext';
+
+const CAN_MANAGE_ROLES = ['SUPER_ADMIN', 'OWNER', 'MANAGER'];
 
 const InstitutionPage = () => {
+  const { user } = usePermissions();
+  const canManage = CAN_MANAGE_ROLES.includes(user?.role?.toUpperCase?.());
   const [institutions, setInstitutions] = useState([]);
-  const [selectedInstitution, setSelectedInstitution] = useState(null);
-  const [viewInstitution, setViewInstitution] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
-  // =========================
-  // Fetch institutions
-  // =========================
   const fetchInstitutions = async () => {
     setLoading(true);
     try {
@@ -26,84 +39,108 @@ const InstitutionPage = () => {
   };
 
   useEffect(() => {
-  const fetchData = async () => {
-    setLoading(true);
+    fetchInstitutions();
+  }, []);
 
-    try {
-      const data = await getAllInstitutions();
-      setInstitutions(data);
-    } catch (err) {
-      console.error('Fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+  const stats = useMemo(() => {
+    const owners = new Set(institutions.map((i) => i.owner?.id));
+    return { total: institutions.length, owners: owners.size };
+  }, [institutions]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormOpen(true);
   };
 
-  fetchData();
-}, []);
+  const openEdit = (inst) => {
+    setEditing(inst);
+    setFormOpen(true);
+  };
 
-  // =========================
-  // Delete from table
-  // =========================
-  const handleTableDelete = async (id) => {
-    const confirmed = window.confirm('Soft delete this institution?');
-    if (!confirmed) return;
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditing(null);
+  };
 
+  const handleFormSuccess = () => {
+    fetchInstitutions();
+    closeForm();
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteInstitution(id);
+      await deleteInstitution(deleteTarget.id);
+      toast.success('Institution deleted.');
+      setDeleteTarget(null);
       fetchInstitutions();
-
-      setSelectedInstitution((prev) =>
-        prev?.id === id ? null : prev
-      );
     } catch (err) {
-      alert('Delete failed: ' + err.message);
+      toast.error('Delete failed: ' + err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-xl font-medium text-gray-800 pb-4 mb-5 border-b border-gray-200">
-        Institution Management
-      </h1>
-
-      {/* FORM */}
-      <InstitutionForm
-        key={selectedInstitution?.id ?? 'new'}
-        selectedInstitution={selectedInstitution}
-        onSuccess={fetchInstitutions}
-        onClearSelection={() => setSelectedInstitution(null)}
+    <div className="min-h-screen bg-paper-soft p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <PageHeader
+          title="Institution management"
+          subtitle="Institutes registered on the platform and their owners"
+          actions={canManage && (
+            <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
+              Add institution
+            </Button>
+          )}
         />
 
-      {/* TABLE */}
-      <hr className="my-6 border-gray-200" />
+        <div className="grid sm:grid-cols-2 gap-4">
+          <StatCard label="Total institutions" value={stats.total} tone="brand" icon={Building2} />
+          <StatCard label="Institution owners" value={stats.owners} tone="ocean" icon={UserCircle2} />
+        </div>
 
-      <h2 className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-4">
-        Institution list
-      </h2>
-
-      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-        {loading ? (
-          <div className="text-sm text-gray-400 text-center py-6">
-            Loading...
+        <Card padding="p-0" className="overflow-hidden">
+          <div className="px-6 py-4 border-b border-ink/[0.06]">
+            <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">Institution list</p>
           </div>
-        ) : (
-          <InstitutionTable
-            institutions={institutions}
-            onView={(inst) => setViewInstitution(inst)}
-            onEdit={(inst) => setSelectedInstitution(inst)}
-            onDelete={handleTableDelete}
-          />
-        )}
+
+          {loading ? (
+            <div className="p-6"><SkeletonRows rows={5} /></div>
+          ) : (
+            <InstitutionTable
+              institutions={institutions}
+              onEdit={canManage ? openEdit : null}
+              onDelete={canManage ? (inst) => setDeleteTarget(inst) : null}
+            />
+          )}
+        </Card>
       </div>
 
-      {/* MODAL */}
-      {viewInstitution && (
-        <ViewInstitutionModal
-          institution={viewInstitution}
-          onClose={() => setViewInstitution(null)}
-        />
+      {canManage && (
+        <Modal
+          open={formOpen}
+          onClose={closeForm}
+          title={editing ? 'Edit institution' : 'Add institution'}
+          width="max-w-xl"
+        >
+          <InstitutionForm
+            key={editing?.id ?? 'new'}
+            selectedInstitution={editing}
+            onSuccess={handleFormSuccess}
+            onCancel={closeForm}
+          />
+        </Modal>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete institution"
+        message={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"?` : ''}
+        loading={deleting}
+      />
     </div>
   );
 };

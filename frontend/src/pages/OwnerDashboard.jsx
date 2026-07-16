@@ -1,24 +1,42 @@
 import { useState, useEffect } from "react";
-import RoleForm from "../components/roles/RoleForm";
-import { fetchRoles, fetchPermissions, deleteRole } from "../services/roleService";
+import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { Users, ShieldCheck, KeyRound, ArrowRight } from "lucide-react";
+import api from "../services/api";
+import { fetchRoles } from "../services/roleService";
+import PageHeader from "../components/ui/PageHeader";
+import StatCard from "../components/StatCard";
+import Card from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
+import EmptyState from "../components/ui/EmptyState";
+import BarChartCard from "../components/charts/BarChartCard";
+import { SkeletonRows } from "../components/ui/Skeleton";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: (i = 0) => ({
+    opacity: 1, y: 0,
+    transition: { duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
 
 export default function OwnerDashboard() {
   const [roles, setRoles] = useState([]);
-  const [permissionGroups, setPermissionGroups] = useState([]);
+  const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingRole, setEditingRole] = useState(null);
-  const [activeTab, setActiveTab] = useState("roles");
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let ignore = false;
     async function load() {
       try {
-        const [r, p] = await Promise.all([fetchRoles(), fetchPermissions()]);
+        const [r, m] = await Promise.all([fetchRoles(), api.get('/managers/')]);
         if (!ignore) {
           setRoles(r);
-          setPermissionGroups(p);
+          setManagers(m.data);
         }
+      } catch {
+        if (!ignore) setError('Failed to load dashboard.');
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -27,176 +45,74 @@ export default function OwnerDashboard() {
     return () => { ignore = true; };
   }, []);
 
-  const handleFormSuccess = (saved) => {
-    setRoles((prev) => {
-      const exists = prev.find((r) => r.id === saved.id);
-      return exists
-        ? prev.map((r) => (r.id === saved.id ? saved : r))
-        : [...prev, saved];
-    });
-    setShowForm(false);
-    setEditingRole(null);
-  };
+  if (loading) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <SkeletonRows rows={5} />
+      </div>
+    );
+  }
+  if (error) return <div className="p-6 text-danger text-sm">{error}</div>;
 
-  const handleEdit = (role) => {
-    setEditingRole(role);
-    setShowForm(true);
-  };
+  const totalPermissions = roles.reduce((sum, r) => sum + r.permissions.length, 0);
+  const configuredRoles = roles.filter((r) => r.permissions.length > 0).length;
+  const coverage = roles.length > 0 ? Math.round((configuredRoles / roles.length) * 100) : 0;
 
-  const handleDelete = async (id) => {
-    if (!confirm("Delete this role? This cannot be undone.")) return;
-    await deleteRole(id);
-    setRoles((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  const formatName = (name) =>
-    name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-
-  const TABS = ["roles", "permissions"];
+  const permissionsPerRole = roles.map((r) => ({
+    name: r.name.charAt(0).toUpperCase() + r.name.slice(1),
+    value: r.permissions.length,
+  }));
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC]">
-      {/* Top bar */}
-      <header className="bg-white border-b border-[#D5DEEF] px-8 py-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs text-[#638ECB] font-medium uppercase tracking-wider">LightLearn</p>
-          <h1 className="text-lg font-semibold text-[#395886]">Owner Dashboard</h1>
-        </div>
-        <div className="w-8 h-8 rounded-full bg-[#395886] flex items-center justify-center text-white text-sm font-semibold">
-          O
-        </div>
-      </header>
+    <div className="p-6 max-w-5xl mx-auto">
+      <PageHeader title="Owner dashboard" subtitle="Managers, roles and access across your institution" />
 
-      <div className="max-w-5xl mx-auto px-8 py-8 space-y-6">
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-[#D5DEEF]">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-                activeTab === tab
-                  ? "border-[#395886] text-[#395886]"
-                  : "border-transparent text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+      <motion.div
+        variants={fadeUp} initial="hidden" animate="show" custom={0}
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+      >
+        <StatCard label="Managers" value={managers.length} tone="ocean" icon={Users} />
+        <StatCard label="Roles defined" value={roles.length} tone="violet" icon={ShieldCheck} />
+        <StatCard
+          label="Roles with permissions set"
+          value={`${coverage}%`}
+          tone="accent"
+          icon={KeyRound}
+          progress={coverage}
+          progressLabel={`${totalPermissions} permissions assigned across ${configuredRoles} of ${roles.length} roles`}
+        />
+      </motion.div>
 
-        {loading ? (
-          <p className="text-sm text-gray-400">Loading…</p>
-        ) : (
-          <>
-            {/* Roles tab */}
-            {activeTab === "roles" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-600">
-                    {roles.length} role{roles.length !== 1 ? "s" : ""}
-                  </h2>
-                  {!showForm && (
-                    <button
-                      onClick={() => { setEditingRole(null); setShowForm(true); }}
-                      className="px-4 py-1.5 bg-[#395886] text-white text-sm rounded-lg hover:bg-[#2d4570] transition-colors"
-                    >
-                      + New Role
-                    </button>
-                  )}
-                </div>
+      <motion.div
+        variants={fadeUp} initial="hidden" animate="show" custom={1}
+        className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4"
+      >
+        <BarChartCard title="Permissions per role" icon={ShieldCheck} data={permissionsPerRole} color="#00A0F5" />
 
-                {/* Form */}
-                {showForm && (
-                  <RoleForm
-                    key={editingRole?.id ?? "new"}
-                    editingRole={editingRole}
-                    permissionGroups={permissionGroups}
-                    onSuccess={handleFormSuccess}
-                    onCancel={() => { setShowForm(false); setEditingRole(null); }}
-                  />
-                )}
-
-                {/* Roles table */}
-                <div className="bg-white border border-[#D5DEEF] rounded-xl overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#F0F3FA] border-b border-[#D5DEEF]">
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Role
-                        </th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Permissions
-                        </th>
-                        <th className="px-5 py-3" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {roles.map((role, i) => (
-                        <tr
-                          key={role.id}
-                          className={`border-b border-[#F0F3FA] last:border-0 ${
-                            i % 2 === 0 ? "bg-white" : "bg-[#FAFBFD]"
-                          }`}
-                        >
-                          <td className="px-5 py-3 font-medium text-[#395886] capitalize">
-                            {role.name}
-                          </td>
-                          <td className="px-5 py-3 text-gray-500 tabular-nums">
-                            {role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <button
-                              onClick={() => handleEdit(role)}
-                              className="text-xs text-[#638ECB] hover:text-[#395886] mr-4 transition-colors"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(role.id)}
-                              className="text-xs text-red-400 hover:text-red-600 transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Permissions tab — read-only browse */}
-            {activeTab === "permissions" && (
-              <div className="space-y-4">
-                {permissionGroups.map((group) => (
-                  <div
-                    key={group.module}
-                    className="bg-white border border-[#D5DEEF] rounded-xl overflow-hidden"
-                  >
-                    <div className="px-5 py-3 bg-[#F0F3FA] border-b border-[#D5DEEF]">
-                      <span className="text-xs font-semibold text-[#395886] uppercase tracking-wider">
-                        {group.module}
-                      </span>
-                    </div>
-                    <div className="px-5 py-3 flex flex-wrap gap-2">
-                      {group.permissions.map((p) => (
-                        <span
-                          key={p.id}
-                          className="px-2.5 py-1 text-xs bg-[#F0F3FA] text-[#638ECB] rounded-full border border-[#D5DEEF]"
-                        >
-                          {formatName(p.name)}
-                        </span>
-                      ))}
-                    </div>
+        <Card padding="p-0" className="overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-ink/[0.06]">
+            <h2 className="text-sm font-semibold text-ink">Managers</h2>
+            <Link to="/managers" className="text-xs text-brand-600 hover:text-brand-700 flex items-center gap-1 font-medium">
+              View all <ArrowRight size={12} />
+            </Link>
+          </div>
+          {managers.length === 0 ? (
+            <EmptyState icon={Users} title="No managers yet" />
+          ) : (
+            <div className="divide-y divide-ink/[0.05]">
+              {managers.slice(0, 6).map((m) => (
+                <div key={m.id} className="flex items-center justify-between px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{m.name}</p>
+                    <p className="text-xs text-ink-faint truncate">{m.user?.email}</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+                  <Badge tone="neutral">{m.institution?.name}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </motion.div>
     </div>
   );
 }

@@ -17,16 +17,16 @@ const ACTIVITY_LOG = [
 function InputField({ label, icon: Icon, type = "text", value, onChange, disabled, placeholder }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <label className="block text-sm font-medium text-ink-soft mb-1.5">{label}</label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint" />
         <input
           type={type}
           value={value}
           onChange={onChange}
           disabled={disabled}
           placeholder={placeholder}
-          className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#395886]/30 disabled:bg-[#F0F3FA] disabled:text-gray-500 transition-all"
+          className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-ink/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#395886]/30 disabled:bg-paper-soft disabled:text-ink-faint transition-all"
         />
       </div>
     </div>
@@ -37,20 +37,20 @@ function PasswordField({ label, value, onChange, placeholder }) {
   const [show, setShow] = useState(false);
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <label className="block text-sm font-medium text-ink-soft mb-1.5">{label}</label>
       <div className="relative">
-        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint" />
         <input
           type={show ? "text" : "password"}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#395886]/30"
+          className="w-full pl-10 pr-10 py-2.5 text-sm rounded-xl border border-ink/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#395886]/30"
         />
         <button
           type="button"
           onClick={() => setShow(!show)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-gray-600"
         >
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
@@ -129,7 +129,7 @@ export default function Profile() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F0F3FA] p-4 md:p-8">
+    <div className="min-h-screen bg-paper-soft p-4 md:p-8">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white animate-fade-in
@@ -142,16 +142,16 @@ export default function Profile() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your account information and preferences</p>
+          <h1 className="text-2xl font-bold text-ink">My Profile</h1>
+          <p className="text-sm text-ink-faint mt-1">Manage your account information and preferences</p>
         </div>
 
         {/* Profile Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-ink/[0.06] p-6 mb-6">
           <div className="flex items-center gap-5 flex-wrap">
             {/* Avatar */}
             <div className="relative">
-              <div className="w-20 h-20 rounded-2xl bg-[#395886] flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
+              <div className="w-20 h-20 rounded-2xl bg-brand-600 flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
                 {profile.avatar ? (
                   <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -160,7 +160,7 @@ export default function Profile() {
               </div>
               <button
                 onClick={() => fileRef.current?.click()}
-                className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-[#395886] text-white rounded-lg flex items-center justify-center shadow-md hover:bg-[#2f4a73] transition-colors"
+                className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-brand-600 text-white rounded-lg flex items-center justify-center shadow-md hover:bg-brand-700 transition-colors"
               >
                 <Camera className="w-3.5 h-3.5" />
               </button>
@@ -181,19 +181,19 @@ export default function Profile() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-gray-900">{profile.name}</h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#395886]/10 text-[#395886]">
+                <h2 className="text-xl font-bold text-ink">{profile.name}</h2>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700">
                   <Shield className="w-3 h-3" /> Super Admin
                 </span>
               </div>
-              <p className="text-sm text-gray-500 mt-0.5">{profile.email}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Last login: Today at 9:41 AM · Portland, OR</p>
+              <p className="text-sm text-ink-faint mt-0.5">{profile.email}</p>
+              <p className="text-xs text-ink-faint mt-0.5">Last login: Today at 9:41 AM · Portland, OR</p>
             </div>
 
             <button
               onClick={() => setEditMode(!editMode)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                editMode ? "text-gray-700 border border-gray-200 hover:bg-gray-50" : "text-white bg-[#395886] hover:bg-[#2f4a73]"
+                editMode ? "text-ink-soft border border-ink/10 hover:bg-ink/[0.03]" : "text-white bg-brand-600 hover:bg-brand-700"
               }`}
             >
               {editMode ? <><X className="w-4 h-4" /> Cancel</> : <><Pencil className="w-4 h-4" /> Edit Profile</>}
@@ -202,16 +202,16 @@ export default function Profile() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="flex border-b border-gray-100 overflow-x-auto">
+        <div className="bg-white rounded-2xl shadow-sm border border-ink/[0.06] overflow-hidden">
+          <div className="flex border-b border-ink/[0.06] overflow-x-auto">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
                 className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
                   activeTab === id
-                    ? "border-[#395886] text-[#395886] bg-[#395886]/5"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                    ? "border-brand-600 text-brand-700 bg-brand-50/60"
+                    : "border-transparent text-ink-faint hover:text-ink-soft hover:bg-ink/[0.03]"
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -248,14 +248,14 @@ export default function Profile() {
                   disabled={!editMode}
                 />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Timezone</label>
+                  <label className="block text-sm font-medium text-ink-soft mb-1.5">Timezone</label>
                   <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint" />
                     <select
                       value={profile.timezone}
                       onChange={(e) => setProfile(p => ({ ...p, timezone: e.target.value }))}
                       disabled={!editMode}
-                      className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#395886]/30 disabled:bg-[#F0F3FA] disabled:text-gray-500 appearance-none"
+                      className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-ink/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#395886]/30 disabled:bg-paper-soft disabled:text-ink-faint appearance-none"
                     >
                       <option value="America/Los_Angeles">Pacific Time (PT)</option>
                       <option value="America/Denver">Mountain Time (MT)</option>
@@ -268,7 +268,7 @@ export default function Profile() {
                 {editMode && (
                   <button
                     onClick={handleSaveProfile}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#395886] hover:bg-[#2f4a73] transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
                   >
                     <Save className="w-4 h-4" /> Save Changes
                   </button>
@@ -280,7 +280,7 @@ export default function Profile() {
             {activeTab === "security" && (
               <div className="max-w-lg">
                 <form onSubmit={handlePasswordChange} className="space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Change Password</h3>
+                  <h3 className="text-sm font-semibold text-ink-soft mb-4">Change Password</h3>
                   <PasswordField
                     label="Current Password"
                     value={passwords.current}
@@ -304,7 +304,7 @@ export default function Profile() {
                           />
                         ))}
                       </div>
-                      <p className="text-xs text-gray-500">{strengthLabel[strength || 0]}</p>
+                      <p className="text-xs text-ink-faint">{strengthLabel[strength || 0]}</p>
                     </div>
                   )}
                   <PasswordField
@@ -315,26 +315,26 @@ export default function Profile() {
                   />
                   <button
                     type="submit"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#395886] hover:bg-[#2f4a73] transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
                   >
                     <Lock className="w-4 h-4" /> Update Password
                   </button>
                 </form>
 
-                <div className="mt-8 pt-6 border-t border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Two-Factor Authentication</h3>
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-[#F0F3FA] border border-gray-200">
+                <div className="mt-8 pt-6 border-t border-ink/[0.06]">
+                  <h3 className="text-sm font-semibold text-ink-soft mb-4">Two-Factor Authentication</h3>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-paper-soft border border-ink/10">
                     <div>
                       <p className="text-sm font-medium text-gray-800">Authenticator App</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Add an extra layer of security to your account</p>
+                      <p className="text-xs text-ink-faint mt-0.5">Add an extra layer of security to your account</p>
                     </div>
-                    <button className="px-4 py-2 rounded-xl text-sm font-medium text-[#395886] border border-[#395886]/30 hover:bg-[#395886]/10 transition-colors">
+                    <button className="px-4 py-2 rounded-xl text-sm font-medium text-brand-700 border border-brand-200 hover:bg-brand-50 transition-colors">
                       Enable
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-gray-100">
+                <div className="mt-6 pt-6 border-t border-ink/[0.06]">
                   <h3 className="text-sm font-semibold text-red-600 mb-4">Danger Zone</h3>
                   <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors">
                     <LogOut className="w-4 h-4" /> Sign out all sessions
@@ -346,7 +346,7 @@ export default function Profile() {
             {/* ── Notifications Tab ── */}
             {activeTab === "notifications" && (
               <div className="max-w-lg space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Email Notifications</h3>
+                <h3 className="text-sm font-semibold text-ink-soft mb-4">Email Notifications</h3>
                 {[
                   { key: "newInstitution", label: "New Institution Registered", desc: "When a new institution signs up" },
                   { key: "subscriptionExpiry", label: "Subscription Expiring", desc: "7 days before a subscription expires" },
@@ -357,15 +357,15 @@ export default function Profile() {
                 ].map(({ key, label, desc }) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between p-4 rounded-xl hover:bg-[#F0F3FA]/60 transition-colors"
+                    className="flex items-center justify-between p-4 rounded-xl hover:bg-paper-soft/60 transition-colors"
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-800">{label}</p>
-                      <p className="text-xs text-gray-500">{desc}</p>
+                      <p className="text-xs text-ink-faint">{desc}</p>
                     </div>
                     <button
                       onClick={() => setNotifications(n => ({ ...n, [key]: !n[key] }))}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${notifications[key] ? "bg-[#395886]" : "bg-gray-200"}`}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${notifications[key] ? "bg-brand-600" : "bg-gray-200"}`}
                     >
                       <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifications[key] ? "translate-x-5" : "translate-x-0"}`} />
                     </button>
@@ -374,7 +374,7 @@ export default function Profile() {
                 <div className="pt-4">
                   <button
                     onClick={() => showToast("Notification preferences saved.")}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-[#395886] hover:bg-[#2f4a73] transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
                   >
                     <Save className="w-4 h-4" /> Save Preferences
                   </button>
@@ -385,31 +385,25 @@ export default function Profile() {
             {/* ── Activity Tab ── */}
             {activeTab === "activity" && (
               <div className="max-w-lg">
-                <h3 className="text-sm font-semibold text-gray-700 mb-4">Recent Activity</h3>
+                <h3 className="text-sm font-semibold text-ink-soft mb-4">Recent Activity</h3>
                 <div className="space-y-1">
                   {ACTIVITY_LOG.map((log, idx) => {
-                    const colors = {
-                      danger: "bg-red-50 text-red-600",
-                      warning: "bg-amber-50 text-amber-600",
-                      success: "bg-emerald-50 text-emerald-600",
-                      info: "bg-[#395886]/10 text-[#395886]",
-                    };
                     const dotColors = {
                       danger: "bg-red-400",
                       warning: "bg-amber-400",
                       success: "bg-emerald-400",
-                      info: "bg-[#395886]",
+                      info: "bg-brand-600",
                     };
                     return (
-                      <div key={log.id} className="flex gap-4 p-3 rounded-xl hover:bg-[#F0F3FA]/60 transition-colors">
+                      <div key={log.id} className="flex gap-4 p-3 rounded-xl hover:bg-paper-soft/60 transition-colors">
                         <div className="flex flex-col items-center">
                           <div className={`w-2 h-2 rounded-full mt-1.5 ${dotColors[log.type]}`} />
                           {idx < ACTIVITY_LOG.length - 1 && <div className="w-px flex-1 bg-gray-200 my-1" />}
                         </div>
                         <div className="flex-1 pb-2">
                           <p className="text-sm font-medium text-gray-800">{log.action}</p>
-                          <p className="text-xs text-gray-500">{log.detail}</p>
-                          <p className="text-xs text-gray-400 mt-1">{log.time}</p>
+                          <p className="text-xs text-ink-faint">{log.detail}</p>
+                          <p className="text-xs text-ink-faint mt-1">{log.time}</p>
                         </div>
                       </div>
                     );

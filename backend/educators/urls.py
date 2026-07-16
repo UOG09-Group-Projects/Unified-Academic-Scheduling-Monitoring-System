@@ -1,10 +1,7 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import EducatorViewSet
-
-router = DefaultRouter()
-router.register(r'educators', EducatorViewSet)
+from django.urls import path
+from .views import EducatorListCreateView, EducatorDetailView
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('educators/', EducatorListCreateView.as_view(), name='educator-list-create'),
+    path('educators/<int:pk>/', EducatorDetailView.as_view(), name='educator-detail'),
 ]

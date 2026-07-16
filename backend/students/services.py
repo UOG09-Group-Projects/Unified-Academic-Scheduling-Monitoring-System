@@ -1,10 +1,136 @@
+import uuid
 from django.db import transaction
 from institutions.models import Student, Guardian, StudentGuardian
 from institutions.models import User
 from institutions.models import ActivityLog
 from institutions.models import Role
+from institutions.models import Institution
 
 class StudentService:
+
+    @staticmethod
+    @transaction.atomic
+    def register_student(data):
+        """
+        Self-service signup: a prospective student creates their own login
+        account and picks which institution to enroll in. No batch yet —
+        a manager assigns one later from that institution's batch list.
+        """
+        name            = (data.get('name') or '').strip()
+        email           = (data.get('email') or '').strip().lower()
+        password        = data.get('password') or ''
+        institution_id  = data.get('institution_id')
+
+        if not all([name, email, password, institution_id]):
+            raise ValueError('name, email, password, and institution_id are all required.')
+
+        if len(password) < 8:
+            raise ValueError('Password must be at least 8 characters.')
+
+        try:
+            institution = Institution.objects.get(id=institution_id, is_deleted=False)
+        except Institution.DoesNotExist:
+            raise ValueError('Selected institution does not exist.')
+
+        if User.objects.filter(email=email).exists():
+            raise ValueError('An account with this email already exists.')
+        if Student.objects.filter(email=email, is_deleted=False).exists():
+            raise ValueError('A student with this email already exists.')
+
+        student_role, _ = Role.objects.get_or_create(name='STUDENT')
+        user = User(
+            username=email,
+            email=email,
+            role=student_role,
+            is_active=True,
+            is_email_verified=True,
+        )
+        user.set_password(password)
+        user.save()
+
+        registration_no = f"STU-{uuid.uuid4().hex[:10].upper()}"
+        while Student.objects.filter(registration_no=registration_no).exists():
+            registration_no = f"STU-{uuid.uuid4().hex[:10].upper()}"
+
+        student = Student.objects.create(
+            name=name,
+            email=email,
+            registration_no=registration_no,
+            institution=institution,
+            user=user,
+        )
+
+        ActivityLog.objects.create(
+            module='STUDENT', action='CREATE',
+            description=f"Student '{student.name}' self-registered at {institution.name}."
+        )
+
+        return student, user
+
+    @staticmethod
+    def list_guardians_for_student(student):
+        return [
+            link.guardian
+            for link in StudentGuardian.objects
+                .filter(student=student)
+                .select_related('guardian')
+        ]
+
+    @staticmethod
+    @transaction.atomic
+    def add_guardian_for_student(student, data):
+        """
+        Self-service: a student adds a guardian's details from their own
+        dashboard. If a guardian with this email already exists (e.g. a
+        sibling already added them), we link the existing record instead
+        of creating a duplicate — that's what makes both siblings show up
+        on the same parent dashboard.
+        """
+        name  = (data.get('name') or '').strip()
+        email = (data.get('email') or '').strip().lower()
+        phone = (data.get('phone') or '').strip()
+
+        if not name or not email:
+            raise ValueError('Guardian name and email are required.')
+
+        guardian = Guardian.objects.filter(email__iexact=email).first()
+
+        if guardian is None:
+            password = data.get('password') or ''
+            if len(password) < 8:
+                raise ValueError(
+                    "This guardian doesn't have an account yet — a password "
+                    "(min 8 characters) is required to create one."
+                )
+
+            parent_role, _ = Role.objects.get_or_create(name='PARENT')
+            user = User(
+                username=email,
+                email=email,
+                role=parent_role,
+                is_active=True,
+                is_email_verified=True,
+            )
+            user.set_password(password)
+            user.save()
+
+            guardian = Guardian.objects.create(
+                name=name, email=email, phone=phone, user=user,
+            )
+            created = True
+        else:
+            created = False
+
+        _, linked = StudentGuardian.objects.get_or_create(
+            student=student, guardian=guardian,
+        )
+
+        ActivityLog.objects.create(
+            module='STUDENT', action='UPDATE',
+            description=f"Guardian '{guardian.name}' linked to student '{student.name}'."
+        )
+
+        return guardian, created, linked
 
     @staticmethod
     @transaction.atomic
@@ -39,13 +165,23 @@ class StudentService:
         user.set_password(data.get('password', data.get('registration_no')))
         user.save()
 
+        # Keep institution in sync with the assigned batch, so every
+        # student (regardless of creation path) can be scoped by
+        # institution_id directly, without a batch join.
+        batch_id = data.get('batch_id')
+        institution_id = data.get('institution_id')
+        if batch_id and not institution_id:
+            from institutions.models import Batch
+            institution_id = Batch.objects.filter(id=batch_id).values_list('institution_id', flat=True).first()
+
         # Create student
         student = Student.objects.create(
             name            = data.get('name'),
             email           = data.get('email'),
             phone           = data.get('phone', ''),
             registration_no = data.get('registration_no'),
-            batch_id        = data.get('batch_id'),
+            batch_id        = batch_id,
+            institution_id  = institution_id,
             user            = user,
         )
 
@@ -91,7 +227,14 @@ class StudentService:
         student.email           = data.get('email',           student.email)
         student.phone           = data.get('phone',           student.phone)
         student.registration_no = data.get('registration_no', student.registration_no)
-        student.batch_id        = data.get('batch_id',        student.batch_id)
+
+        new_batch_id = data.get('batch_id', student.batch_id)
+        if new_batch_id != student.batch_id:
+            from institutions.models import Batch
+            student.institution_id = Batch.objects.filter(
+                id=new_batch_id
+            ).values_list('institution_id', flat=True).first()
+        student.batch_id = new_batch_id
         student.save()
 
         # Update linked user email/username too

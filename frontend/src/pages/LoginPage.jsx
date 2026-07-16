@@ -1,206 +1,100 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import authService from '../auth/services/authService';
-
-//const TEMP_EMAIL = 'demo@lightlearn.com';
-//const TEMP_PASSWORD = '123456';
+import AuthShell from '../auth/AuthShell';
+import { Input } from '../components/ui/Field';
+import Button from '../components/ui/Button';
+import { usePermissions } from '../auth/PermissionsContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    email: '',
-    password: ''
-  });
-
+  const { setUser } = usePermissions();
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-
   const handleChange = (e) => {
-    setForm(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
-  setError(null);
-  setLoading(true);
+    try {
+      const user = await authService.login(form.email, form.password);
+      setUser(user);
 
-  try {
-    const user = await authService.login(form.email, form.password);
-
-    // Save logged in user
-    localStorage.setItem("user", JSON.stringify(user));
-
-    const role = user.role.toLowerCase();
-
-    switch (role) {
-      case "owner":
-        navigate("/dashboard/owner");
-        break;
-
-      case "admin":
-        navigate("/dashboard/super-admin");
-        break;
-
-      case "manager":
-        navigate("/dashboard/manager");
-        break;
-
-      case "educator":
-        navigate("/dashboard/educator");
-        break;
-
-      case "student":
-        navigate("/dashboard/student");
-        break;
-
-      case "parent":
-        navigate("/dashboard/parent");
-        break;
-
-      default:
-        navigate("/");
+      const role = user.role.toLowerCase();
+      const routes = {
+        owner: '/dashboard/owner',
+        super_admin: '/dashboard/super-admin',
+        manager: '/dashboard/manager',
+        educator: '/dashboard/educator',
+        student: '/dashboard/student',
+        parent: '/dashboard/parent',
+      };
+      navigate(routes[role] || '/');
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Invalid email or password.'
+      );
+    } finally {
+      setLoading(false);
     }
-
-  } catch (err) {
-    setError(
-      err.response?.data?.message ||
-      err.response?.data?.error ||
-      "Invalid email or password."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100
-                    flex items-center justify-center p-4">
+    <AuthShell title="LightLearn" subtitle="Sign in to your account">
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-5 px-4 py-3 bg-red-50 border border-red-200 text-danger rounded-lg text-sm"
+        >
+          {error}
+        </motion.div>
+      )}
 
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Input
+          label="Email address"
+          type="email"
+          name="email"
+          value={form.email}
+          onChange={handleChange}
+          placeholder="you@example.com"
+          required
+        />
+        <Input
+          label="Password"
+          type="password"
+          name="password"
+          value={form.password}
+          onChange={handleChange}
+          placeholder="••••••••"
+          required
+        />
 
+        <Button type="submit" variant="ocean" size="md" disabled={loading} className="w-full mt-1">
+          {loading ? 'Signing in…' : 'Sign in'}
+        </Button>
 
-        <div className="text-center mb-8">
-
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl 
-                          flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-2xl font-bold">
-              L
-            </span>
-          </div>
-
-          <h1 className="text-2xl font-bold text-gray-800">
-            LightLearn
-          </h1>
-
-          <p className="text-sm text-gray-500 mt-1">
-            Sign in to your account
-          </p>
-
+        <div className="text-right">
+          <Link to="/forgot-password" className="text-sm text-ocean-700 hover:underline">
+            Forgot password?
+          </Link>
         </div>
+      </form>
 
-
-        {error && (
-          <div className="mb-5 px-4 py-3 bg-red-50 border border-red-200
-                          text-red-700 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
-
-
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-
-
-          <div>
-
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email address
-            </label>
-
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5
-                         text-sm focus:outline-none focus:ring-2
-                         focus:ring-blue-500 focus:border-transparent"
-            />
-
-          </div>
-
-
-
-          <div>
-
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5
-                         text-sm focus:outline-none focus:ring-2
-                         focus:ring-blue-500 focus:border-transparent"
-            />
-
-          </div>
-
-
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700
-                       text-white font-medium rounded-lg text-sm
-                       disabled:opacity-50 transition-colors mt-2"
-          >
-
-            {loading ? 'Signing in...' : 'Sign In'}
-
-          </button>
-
-
-
-          <div className="text-right">
-
-            <Link
-              to="/forgot-password"
-              className="text-sm text-blue-600 hover:underline"
-            >
-              Forgot password?
-            </Link>
-
-          </div>
-
-
-        </form>
-
-
-
-        <p className="text-center text-xs text-gray-400 mt-6">
-
-          Contact your administrator if you don't have an account.
-
-        </p>
-
-
-      </div>
-
-    </div>
+      <p className="text-center text-xs text-ink-faint mt-6">
+        New student?{' '}
+        <Link to="/signup/student" className="text-ocean-700 hover:underline">Create an account</Link>
+      </p>
+    </AuthShell>
   );
 }

@@ -70,6 +70,7 @@ class User(models.Model):
     email                 = models.EmailField(unique=True)
     hashed_password       = models.CharField(max_length=256)
     salt                  = models.CharField(max_length=64)
+    profile_picture       = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     role                  = models.ForeignKey(
         Role, on_delete=models.PROTECT, related_name='users'
     )
@@ -224,6 +225,12 @@ class Guardian(models.Model):
 
 class Student(models.Model):
     name            = models.CharField(max_length=50)
+    institution     = models.ForeignKey(
+        Institution,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='students'
+    )
     batch           = models.ForeignKey(
         Batch,
         on_delete=models.SET_NULL,
@@ -360,6 +367,53 @@ class Progress(models.Model):
     class Meta:
         db_table        = 'progress'
         unique_together = ('student', 'activity')
+
+
+# ---------------------------------------------------------------------------
+# Event (calendar)
+# ---------------------------------------------------------------------------
+
+class Event(models.Model):
+    """
+    A calendar entry. If `course` is set, the event is visible to everyone
+    enrolled in / teaching that course. If `course` is null, the event is
+    personal — visible only to `created_by`.
+    """
+    EVENT_TYPES = [
+        ('class',      'Class'),
+        ('assignment', 'Assignment'),
+        ('exam',       'Exam'),
+        ('holiday',    'Holiday'),
+        ('meeting',    'Meeting'),
+        ('personal',   'Personal'),
+    ]
+
+    title       = models.CharField(max_length=150)
+    description = models.CharField(max_length=500, blank=True)
+    event_type  = models.CharField(max_length=20, choices=EVENT_TYPES, default='personal')
+    start       = models.DateTimeField()
+    end         = models.DateTimeField(null=True, blank=True)
+    all_day     = models.BooleanField(default=False)
+
+    course      = models.ForeignKey(
+        Course, on_delete=models.CASCADE, null=True, blank=True, related_name='events'
+    )
+    institution = models.ForeignKey(
+        Institution, on_delete=models.CASCADE, related_name='events'
+    )
+    created_by  = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='created_events'
+    )
+
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'events'
+        ordering = ['start']
+
+    def __str__(self):
+        return f"{self.title} ({self.start:%Y-%m-%d})"
 
 
 # ---------------------------------------------------------------------------

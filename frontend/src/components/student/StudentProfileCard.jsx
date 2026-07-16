@@ -1,27 +1,18 @@
-// src/components/student/StudentProfileCard.jsx
-
-const COLOR_MAP = {
-  blue: { avatar: 'bg-blue-500 text-white' },
-};
+import Badge from '../ui/Badge';
 
 export default function StudentProfileCard({ student }) {
   const initials = student.name
-    ? student.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    ? student.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';
 
   return (
-    <div className="rounded-xl border bg-white p-6 flex items-center gap-4">
-      
-      {/* Avatar */}
-      <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center text-white font-bold">
+    <div className="flex items-center gap-4">
+      <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white font-display font-bold shrink-0">
         {initials}
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-lg font-semibold text-gray-900">
-          {student.name}
-        </p>
+        <p className="text-lg font-display font-semibold text-ink">{student.name}</p>
 
         <div className="flex flex-wrap gap-1.5 mt-2">
           {[
@@ -31,12 +22,7 @@ export default function StudentProfileCard({ student }) {
           ]
             .filter(Boolean)
             .map((tag, i) => (
-              <span
-                key={i}
-                className="px-2.5 py-1 rounded-md border bg-gray-50 text-xs text-gray-600"
-              >
-                {tag}
-              </span>
+              <Badge key={i} tone="neutral">{tag}</Badge>
             ))}
         </div>
       </div>

@@ -1,13 +1,13 @@
 from rest_framework.response import Response
 from rest_framework import status
-from django.shortcuts import get_object_or_404
 from institutions.models import Batch
 from institutions.views import JWTView       # reuse the base class we already wrote
+from institutions.access import scoped_institution_filter, is_institution_allowed
 from .serializers import BatchSerializer
 
 
 class BatchListCreateView(JWTView):
-    allowed_roles = ['SUPER_ADMIN', 'OWNER', 'MANAGER']
+    permission_map = {'GET': 'view_batch', 'POST': 'create_batch'}
 
     def get(self, request):
         try:
@@ -15,6 +15,7 @@ class BatchListCreateView(JWTView):
             institution_id = request.query_params.get('institution', '')
 
             batches = Batch.objects.select_related('institution').all()
+            batches = batches.filter(**scoped_institution_filter(request.current_user))
 
             if search:
                 batches = batches.filter(name__icontains=search)
@@ -32,6 +33,13 @@ class BatchListCreateView(JWTView):
 
     def post(self, request):
         try:
+            institution_id = request.data.get('institution')
+            if not is_institution_allowed(request.current_user, institution_id):
+                return Response(
+                    {'error': 'You cannot create batches for this institution.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             serializer = BatchSerializer(data=request.data)
             if serializer.is_valid():
                 serializer.save()
@@ -46,14 +54,24 @@ class BatchListCreateView(JWTView):
 
 
 class BatchDetailView(JWTView):
-    allowed_roles = ['SUPER_ADMIN', 'OWNER', 'MANAGER']
+    permission_map = {'GET': 'view_batch', 'PUT': 'edit_batch', 'DELETE': 'delete_batch'}
+
+    def get_object(self, request, pk):
+        try:
+            batch = Batch.objects.select_related('institution').get(pk=pk)
+        except Batch.DoesNotExist:
+            return None
+        if not is_institution_allowed(request.current_user, batch.institution_id):
+            return None
+        return batch
 
     def get(self, request, pk):
+        batch = self.get_object(request, pk)
+        if not batch:
+            return Response({'error': 'Batch not found.'}, status=status.HTTP_404_NOT_FOUND)
         try:
-            batch      = get_object_or_404(Batch, pk=pk)
             serializer = BatchSerializer(batch)
             return Response(serializer.data, status=status.HTTP_200_OK)
-
         except Exception as e:
             return Response(
                 {'error': 'Failed to fetch batch', 'detail': str(e)},
@@ -61,8 +79,17 @@ class BatchDetailView(JWTView):
             )
 
     def put(self, request, pk):
+        batch = self.get_object(request, pk)
+        if not batch:
+            return Response({'error': 'Batch not found.'}, status=status.HTTP_404_NOT_FOUND)
         try:
-            batch      = get_object_or_404(Batch, pk=pk)
+            target_institution = request.data.get('institution', batch.institution_id)
+            if not is_institution_allowed(request.current_user, target_institution):
+                return Response(
+                    {'error': 'You cannot move batches to this institution.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             serializer = BatchSerializer(batch, data=request.data)
             if serializer.is_valid():
                 serializer.save()
@@ -76,8 +103,10 @@ class BatchDetailView(JWTView):
             )
 
     def delete(self, request, pk):
+        batch = self.get_object(request, pk)
+        if not batch:
+            return Response({'error': 'Batch not found.'}, status=status.HTTP_404_NOT_FOUND)
         try:
-            batch = get_object_or_404(Batch, pk=pk)
             batch.delete()
             return Response(
                 {'message': 'Batch deleted successfully'},

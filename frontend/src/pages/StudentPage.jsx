@@ -1,32 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, GraduationCap, Layers3 } from 'lucide-react';
 import StudentForm from "../components/StudentForm";
 import StudentTable from '../components/StudentTable';
 import ViewStudentModal from '../components/ViewStudentModal';
 import studentService from "../services/studentService";
 import batchService from '../services/batchService';
+import PageHeader from '../components/ui/PageHeader';
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import StatCard from '../components/StatCard';
+import { SkeletonRows } from '../components/ui/Skeleton';
+import { useToast } from '../components/ui/Toast';
+import { usePermissions } from '../auth/PermissionsContext';
 
 const StudentPage = () => {
+  const { can } = usePermissions();
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [formOpen, setFormOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [viewStudent, setViewStudent] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
-  // =========================
-  // Fetch batches
-  // =========================
   const fetchBatches = async () => {
-  try {
-    const data = await batchService.getAll();
-    setBatches(data);
-  } catch (err) {
-    console.error('Batch fetch error:', err);
-  }
-};
+    try {
+      const data = await batchService.getAll();
+      setBatches(data);
+    } catch (err) {
+      console.error('Batch fetch error:', err);
+    }
+  };
 
-  // =========================
-  // Fetch students
-  // =========================
   const fetchStudents = async () => {
     setLoading(true);
     try {
@@ -44,41 +54,61 @@ const StudentPage = () => {
     fetchStudents();
   }, []);
 
-  // =========================
-  // CRUD handlers
-  // =========================
+  const stats = useMemo(() => {
+    const batchIds = new Set(students.map((s) => s.batch_name).filter(Boolean));
+    return { total: students.length, batches: batchIds.size };
+  }, [students]);
+
+  const openCreate = () => {
+    setSelectedStudent(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (student) => {
+    setSelectedStudent(student);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setSelectedStudent(null);
+  };
+
   const handleInsert = async (payload) => {
     try {
       await studentService.create(payload);
+      toast.success('Student created.');
       fetchStudents();
-      setSelectedStudent(null);
+      closeForm();
     } catch (err) {
-      alert(err.response?.data?.error || 'Insert failed');
+      toast.error(err.response?.data?.error || 'Insert failed');
     }
   };
 
   const handleUpdate = async (id, payload) => {
-    if (!id) return alert('Select a student first');
-
+    if (!id) return toast.error('Select a student first');
     try {
       await studentService.update(id, payload);
+      toast.success('Student updated.');
       fetchStudents();
-      setSelectedStudent(null);
+      closeForm();
     } catch (err) {
-      alert(err.response?.data?.error || 'Update failed');
+      toast.error(err.response?.data?.error || 'Update failed');
     }
   };
 
-  const handleDelete = async (id) => {
-    const confirmDelete = window.confirm("Delete this student?");
-    if (!confirmDelete) return;
-
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await studentService.remove(id);
+      await studentService.remove(deleteTarget.id);
+      toast.success('Student deleted.');
+      setDeleteTarget(null);
       fetchStudents();
-      setSelectedStudent(null);
     } catch (err) {
-      alert(err.response?.data?.error || 'Delete failed');
+      toast.error(err.response?.data?.error || 'Delete failed');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -87,60 +117,72 @@ const StudentPage = () => {
       const full = await studentService.getById(student.id);
       setViewStudent(full);
     } catch {
-      alert('Failed to load student details');
+      toast.error('Failed to load student details');
     }
   };
 
-  // =========================
-  // UI
-  // =========================
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="min-h-screen bg-paper-soft p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <PageHeader
+          title="Student management"
+          subtitle="Enrolled students and their guardians"
+          actions={can('create_student') && (
+            <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
+              Add student
+            </Button>
+          )}
+        />
 
-      {/* HEADER */}
-      <h1 className="text-xl font-medium text-gray-800 pb-4 mb-5 border-b border-gray-200">
-        Student Management
-      </h1>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <StatCard label="Total students" value={stats.total} tone="brand" icon={GraduationCap} />
+          <StatCard label="Batches covered" value={stats.batches} tone="ocean" icon={Layers3} />
+        </div>
 
-      {/* FORM */}
-      <StudentForm
-        key={selectedStudent?.id ?? 'new'}
-        selectedStudent={selectedStudent}
-        batches={batches}
-        onInsert={handleInsert}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        onClear={() => setSelectedStudent(null)}
-      />
-
-      {/* TABLE SECTION */}
-      <hr className="my-6 border-gray-200" />
-
-      <h2 className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-4">
-        Student list
-      </h2>
-
-      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-        {loading ? (
-          <div className="text-sm text-gray-400 text-center py-6">
-            Loading...
+        <Card padding="p-0" className="overflow-hidden">
+          <div className="px-6 py-4 border-b border-ink/[0.06]">
+            <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">Student list</p>
           </div>
-        ) : (
-          <StudentTable
-            students={students}
-            onEdit={setSelectedStudent}
-            onView={handleView}
-          />
-        )}
+
+          {loading ? (
+            <div className="p-6"><SkeletonRows rows={5} /></div>
+          ) : (
+            <StudentTable
+              students={students}
+              onEdit={can('edit_student') ? openEdit : null}
+              onView={handleView}
+              onDelete={can('delete_student') ? setDeleteTarget : null}
+            />
+          )}
+        </Card>
       </div>
 
-      {/* MODAL */}
-      {viewStudent && (
-        <ViewStudentModal
-          student={viewStudent}
-          onClose={() => setViewStudent(null)}
+      <Modal
+        open={formOpen}
+        onClose={closeForm}
+        title={selectedStudent ? 'Edit student' : 'Add student'}
+        width="max-w-2xl"
+      >
+        <StudentForm
+          key={selectedStudent?.id ?? 'new'}
+          selectedStudent={selectedStudent}
+          batches={batches}
+          onInsert={handleInsert}
+          onUpdate={handleUpdate}
+          onCancel={closeForm}
         />
-      )}
+      </Modal>
+
+      <ViewStudentModal student={viewStudent} onClose={() => setViewStudent(null)} />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete student"
+        message={deleteTarget ? `Delete "${deleteTarget.name}"? Their login account will also be deactivated.` : ''}
+        loading={deleting}
+      />
     </div>
   );
 };

@@ -1,14 +1,17 @@
+import calendar
+import datetime
 from django.http import JsonResponse
 from django.db.models import Count
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
-#from institutions.jwt_utils import jwt_required
+from institutions.jwt_utils import jwt_required
 from institutions.models import (
     Institution, ActivityLog,
     Course, Allocation,
     Student, Educator,
     Batch, Guardian, StudentGuardian,
+    Enrolment, Activity, Progress,
 )
 
 
@@ -19,9 +22,8 @@ from institutions.models import (
 
 @csrf_exempt
 @require_http_methods(['GET'])
+@jwt_required(roles=['MANAGER'])
 def manager_dashboard(request):
-    user = request.current_user   # dict: user_id, role, institution_id, ...
-
     total_institutions = Institution.objects.filter(is_deleted=False).count()
     total_courses      = Course.objects.filter(is_deleted=False).count()
     total_educators    = Educator.objects.count()
@@ -72,6 +74,7 @@ def manager_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
+@jwt_required(roles=['SUPER_ADMIN'])
 def super_admin_dashboard(request):
     total_institutions = Institution.objects.filter(is_deleted=False).count()
     total_courses      = Course.objects.filter(is_deleted=False).count()
@@ -124,11 +127,12 @@ def super_admin_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
+@jwt_required(roles=['EDUCATOR'])
 def educator_dashboard(request):
-    user = request.current_user   # dict
+    user = request.current_user
 
     allocations = Allocation.objects.filter(
-        educator__user_id=user['user_id']
+        educator__user_id=user.id
     ).select_related('course', 'course__institution')
 
     courses = []
@@ -174,15 +178,16 @@ def educator_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
+@jwt_required(roles=['STUDENT'])
 def student_dashboard(request):
-    user = request.current_user   # dict
+    user = request.current_user
 
     try:
         student = Student.objects.select_related(
-            'batch'
+            'batch', 'institution'
         ).prefetch_related(
             'student_guardians__guardian'
-        ).get(user_id=user['user_id'], is_deleted=False)
+        ).get(user_id=user.id, is_deleted=False)
     except Student.DoesNotExist:
         return JsonResponse({'error': 'Student profile not found.'}, status=404)
 
@@ -206,6 +211,15 @@ def student_dashboard(request):
                 ],
             })
 
+    enrollments = [
+        {
+            'id':            e.id,
+            'course':        {'id': e.course.id, 'name': e.course.name, 'code': e.course.code},
+            'enrolled_date': e.enrolled_date.isoformat(),
+        }
+        for e in Enrolment.objects.filter(student=student).select_related('course').order_by('-enrolled_date')
+    ]
+
     return JsonResponse({
         'student': {
             'id':              student.id,
@@ -213,12 +227,15 @@ def student_dashboard(request):
             'email':           student.email,
             'registration_no': student.registration_no,
             'batch':           student.batch.name if student.batch else None,
+            'institution':     student.institution.name if student.institution else None,
         },
         'summary': {
-            'total_courses':   len(courses),
-            'total_educators': sum(len(c['educators']) for c in courses),
+            'total_courses':     len(courses),
+            'total_educators':   sum(len(c['educators']) for c in courses),
+            'total_enrollments': len(enrollments),
         },
-        'courses': courses,
+        'courses':     courses,
+        'enrollments': enrollments,
     })
 
 
@@ -229,17 +246,18 @@ def student_dashboard(request):
 
 @csrf_exempt
 @require_http_methods(['GET'])
+@jwt_required(roles=['PARENT'])
 def parent_dashboard(request):
-    user = request.current_user   # dict
+    user = request.current_user
 
     try:
-        guardian = Guardian.objects.get(user_id=user['user_id'])
+        guardian = Guardian.objects.get(user_id=user.id)
     except Guardian.DoesNotExist:
         return JsonResponse({'error': 'Guardian profile not found.'}, status=404)
 
     links = StudentGuardian.objects.filter(
         guardian=guardian
-    ).select_related('student', 'student__batch')
+    ).select_related('student', 'student__batch', 'student__institution')
 
     children = []
     for link in links:
@@ -259,14 +277,26 @@ def parent_dashboard(request):
                     'code': cb.course.code,
                 })
 
+        enrollments = [
+            {
+                'id':            e.id,
+                'course':        {'id': e.course.id, 'name': e.course.name, 'code': e.course.code},
+                'enrolled_date': e.enrolled_date.isoformat(),
+            }
+            for e in Enrolment.objects.filter(student=student).select_related('course').order_by('-enrolled_date')
+        ]
+
         children.append({
-            'id':              student.id,
-            'name':            student.name,
-            'email':           student.email,
-            'registration_no': student.registration_no,
-            'batch':           student.batch.name if student.batch else None,
-            'total_courses':   len(courses),
-            'courses':         courses,
+            'id':                student.id,
+            'name':              student.name,
+            'email':             student.email,
+            'registration_no':   student.registration_no,
+            'batch':             student.batch.name if student.batch else None,
+            'institution':       student.institution.name if student.institution else None,
+            'total_courses':     len(courses),
+            'courses':           courses,
+            'total_enrollments': len(enrollments),
+            'enrollments':       enrollments,
         })
 
     return JsonResponse({
@@ -276,4 +306,140 @@ def parent_dashboard(request):
         },
         'total_children': len(children),
         'children':       children,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Parent monthly report
+# GET /api/dashboard/parent/report/?student_id=X&year=YYYY&month=MM
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@require_http_methods(['GET'])
+@jwt_required(roles=['PARENT'])
+def parent_monthly_report(request):
+    user = request.current_user
+
+    try:
+        guardian = Guardian.objects.get(user_id=user.id)
+    except Guardian.DoesNotExist:
+        return JsonResponse({'error': 'Guardian profile not found.'}, status=404)
+
+    student_id = request.GET.get('student_id')
+    if not student_id:
+        return JsonResponse({'error': 'student_id is required.'}, status=400)
+
+    is_own_child = StudentGuardian.objects.filter(
+        guardian=guardian, student_id=student_id
+    ).exists()
+    if not is_own_child:
+        return JsonResponse({'error': 'Not found.'}, status=404)
+
+    try:
+        student = Student.objects.select_related('batch', 'institution').get(
+            id=student_id, is_deleted=False
+        )
+    except Student.DoesNotExist:
+        return JsonResponse({'error': 'Student not found.'}, status=404)
+
+    today = datetime.date.today()
+    try:
+        year  = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month))
+        if not (1 <= month <= 12):
+            raise ValueError
+    except ValueError:
+        return JsonResponse({'error': 'Invalid year or month.'}, status=400)
+
+    # Courses: batch-assigned + explicitly self-enrolled, deduplicated.
+    course_ids = set()
+    if student.batch:
+        course_ids.update(
+            student.batch.course_batches.values_list('course_id', flat=True)
+        )
+    course_ids.update(
+        Enrolment.objects.filter(student=student).values_list('course_id', flat=True)
+    )
+    course_qs = Course.objects.filter(id__in=course_ids, is_deleted=False)
+
+    progress_by_activity = {
+        p.activity_id: float(p.value)
+        for p in Progress.objects.filter(student=student)
+    }
+
+    courses_report = []
+    total_activities, graded_activities = 0, 0
+    progress_values = []
+
+    for course in course_qs:
+        activities = list(Activity.objects.filter(course=course).order_by('id'))
+        activity_rows = []
+        for a in activities:
+            value = progress_by_activity.get(a.id)
+            activity_rows.append({
+                'id':       a.id,
+                'name':     a.name,
+                'due_date': a.due_date,
+                'optional': a.optional,
+                'progress_pct': round(value * 100) if value is not None else None,
+            })
+            total_activities += 1
+            if value is not None:
+                graded_activities += 1
+                progress_values.append(value)
+
+        course_progress_values = [
+            progress_by_activity[a.id] for a in activities if a.id in progress_by_activity
+        ]
+        courses_report.append({
+            'id':                   course.id,
+            'name':                 course.name,
+            'code':                 course.code,
+            'total_activities':     len(activities),
+            'graded_activities':    len(course_progress_values),
+            'average_progress_pct': (
+                round(sum(course_progress_values) / len(course_progress_values) * 100)
+                if course_progress_values else None
+            ),
+            'activities': activity_rows,
+        })
+
+    enrollments_this_month = [
+        {
+            'id':            e.id,
+            'course':        {'id': e.course.id, 'name': e.course.name, 'code': e.course.code},
+            'enrolled_date': e.enrolled_date.isoformat(),
+        }
+        for e in Enrolment.objects.filter(
+            student=student, enrolled_date__year=year, enrolled_date__month=month
+        ).select_related('course').order_by('enrolled_date')
+    ]
+
+    return JsonResponse({
+        'guardian': {'id': guardian.id, 'name': guardian.name},
+        'student': {
+            'id':              student.id,
+            'name':            student.name,
+            'registration_no': student.registration_no,
+            'institution':     student.institution.name if student.institution else None,
+            'batch':           student.batch.name if student.batch else None,
+        },
+        'period': {
+            'year':  year,
+            'month': month,
+            'label': f'{calendar.month_name[month]} {year}',
+        },
+        'summary': {
+            'total_courses':               len(courses_report),
+            'total_activities':            total_activities,
+            'graded_activities':           graded_activities,
+            'overall_average_progress_pct': (
+                round(sum(progress_values) / len(progress_values) * 100)
+                if progress_values else None
+            ),
+            'enrollments_this_month': len(enrollments_this_month),
+        },
+        'courses':                courses_report,
+        'enrollments_this_month': enrollments_this_month,
+        'generated_at': datetime.datetime.now().isoformat(),
     })

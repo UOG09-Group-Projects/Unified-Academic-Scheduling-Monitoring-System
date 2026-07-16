@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import {
   CalendarDays,
   Building2,
@@ -6,88 +7,97 @@ import {
   Zap,
   BarChart3,
 } from "lucide-react";
+import Card from "./ui/Card";
 
 const FEATURES = [
   {
     icon: CalendarDays,
-    colorClass: "bg-blue-50 text-[#2563EB]",
-    title: "Smart Timetable Builder",
-    desc: "Drag-and-drop schedule creation with automatic conflict detection across rooms, faculty, and student groups.",
+    tone: "bg-ocean-50 text-ocean-700",
+    title: "Live shared calendar",
+    desc: "Classes, exams, and personal reminders sync in real time across every student and educator dashboard.",
   },
   {
     icon: Building2,
-    colorClass: "bg-emerald-50 text-[#4ADE80]",
-    title: "Room Management",
-    desc: "Track capacity, equipment, and availability for every classroom, lab, and lecture hall in real time.",
+    tone: "bg-emerald-50 text-emerald-600",
+    title: "Multi-institution support",
+    desc: "Owners and managers run several institutions, batches, and terms from one unified workspace.",
   },
   {
     icon: ClipboardList,
-    colorClass: "bg-amber-50 text-amber-500",
-    title: "Course Registration",
-    desc: "Students browse, enroll, and manage their timetable independently — with waitlist management built in.",
+    tone: "bg-accent-50 text-accent-600",
+    title: "Course & batch management",
+    desc: "Enroll students, allocate educators, and organize batches without spreadsheets or guesswork.",
   },
   {
     icon: UserCheck,
-    colorClass: "bg-violet-50 text-violet-500",
-    title: "Faculty Allocation",
-    desc: "Assign lecturers to courses with workload balancing and preference-aware scheduling.",
+    tone: "bg-violet-50 text-violet-600",
+    title: "Role-based access",
+    desc: "Super admins, owners, managers, educators, students, and parents each see exactly what they need.",
   },
   {
     icon: Zap,
-    colorClass: "bg-red-50 text-red-500",
-    title: "Conflict Resolution",
-    desc: "Instant alerts when scheduling clashes occur, with suggested alternatives to resolve them fast.",
+    tone: "bg-red-50 text-red-500",
+    title: "Instant updates",
+    desc: "Add or change an event and everyone watching sees it appear within seconds — no page refresh.",
   },
   {
     icon: BarChart3,
-    colorClass: "bg-slate-100 text-slate-500",
-    title: "Reports & Analytics",
-    desc: "Utilization rates, enrollment trends, and faculty load summaries — exportable to PDF or Excel.",
+    tone: "bg-slate-100 text-slate-600",
+    title: "Reports & activity logs",
+    desc: "Track enrollment, faculty load, and every change made across the institution, in one feed.",
   },
 ];
 
+const container = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+};
+
 export default function Features() {
   return (
-    <section id="features" className="py-24 px-[5%] bg-slate-50">
-      {/* Header */}
-      <div className="text-center mb-16">
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#2563EB] mb-3">
+    <section id="features" className="py-28 px-[5%] bg-white">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.5 }}
+        className="text-center mb-16"
+      >
+        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
           What's inside
         </p>
-
-        <h2 className="font-bold text-[clamp(1.9rem,3.5vw,2.8rem)] leading-[1.15] tracking-tight text-slate-800 mb-4">
-          Built for the full academic lifecycle
+        <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4">
+          Built for the full academic term
         </h2>
-
-        <p className="text-[1.05rem] text-slate-500 leading-[1.7] max-w-[560px] mx-auto">
+        <p className="text-[1.05rem] text-ink-faint leading-[1.7] max-w-[560px] mx-auto">
           From semester setup to exam week, every scheduling need handled in one
-          place.
+          calm, connected place.
         </p>
-      </div>
+      </motion.div>
 
-      {/* Feature Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1100px] mx-auto">
-        {FEATURES.map(({ icon: Icon, colorClass, title, desc }) => (
-          <div
-            key={title}
-            className="bg-white border border-slate-200 rounded-[14px] p-8 transition-all duration-200 hover:shadow-xl hover:-translate-y-1 group"
-          >
-            <div
-              className={`w-[46px] h-[46px] ${colorClass} rounded-[10px] flex items-center justify-center mb-5 transition-transform duration-200 group-hover:scale-110`}
-            >
-              <Icon size={22} />
-            </div>
-
-            <h3 className="font-bold text-[1.05rem] text-slate-800 mb-2">
-              {title}
-            </h3>
-
-            <p className="text-[0.9rem] text-slate-500 leading-[1.65]">
-              {desc}
-            </p>
-          </div>
+      <motion.div
+        variants={container}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-60px" }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1100px] mx-auto"
+      >
+        {FEATURES.map(({ icon: Icon, tone, title, desc }) => (
+          <motion.div key={title} variants={item}>
+            <Card hover padding="p-8" className="h-full group">
+              <div className={`w-12 h-12 ${tone} rounded-xl flex items-center justify-center mb-5 transition-transform duration-200 group-hover:scale-110`}>
+                <Icon size={22} />
+              </div>
+              <h3 className="font-display font-bold text-[1.05rem] text-ink mb-2">{title}</h3>
+              <p className="text-[0.9rem] text-ink-faint leading-[1.65]">{desc}</p>
+            </Card>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }

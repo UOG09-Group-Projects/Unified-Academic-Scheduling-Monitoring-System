@@ -7,6 +7,7 @@ import Course from './pages/Course';
 import StudentPage from './pages/StudentPage';
 
 import LoginPage from './pages/LoginPage';
+import StudentSignupPage from './pages/StudentSignupPage';
 import ForgotPasswordPage from './auth/ForgotPasswordPage';
 import ResetPasswordPage from './auth/ResetPasswordPage';
 import VerifyEmailPage from './auth/VerifyEmailPage';
@@ -23,8 +24,9 @@ import Profile from "./pages/superadmin/Profile";
 import Settings from "./pages/superadmin/Settings";
 import ManagerManagement from './pages/ManagerManagement';
 import Home from './pages/Home';
-import RoleForm from './components/roles/RoleForm';
+import RolesPermissions from './pages/RolesPermissions';
 import UserProfile from './pages/UserProfile';
+import Subscriptions from './pages/superadmin/Subscriptions';
 
 
 
@@ -35,7 +37,8 @@ function App() {
 
         {/* PUBLIC ROUTES */}
         <Route path="/" element={<Home />} />
-         <Route path="/login" element={<LoginPage />} /> 
+         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup/student" element={<StudentSignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -119,7 +122,9 @@ function App() {
             path="/profile" 
             element={<UserProfile />} />
 
-          <Route path="/roles" element={<RoleForm/>} />
+          <Route path="/roles" element={<RolesPermissions />} />
+
+          <Route path="/subscriptions" element={<Subscriptions />} />
 
         </Route>
 

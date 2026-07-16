@@ -1,54 +1,95 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { Camera, X, Search, GraduationCap, Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import api from "../services/api";
+import PageHeader from "../components/ui/PageHeader";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import EmptyState from "../components/ui/EmptyState";
+import StatCard from "../components/StatCard";
+import { Input, Select } from "../components/ui/Field";
+import { SkeletonRows } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
+import { usePermissions } from "../auth/PermissionsContext";
 
-const API = "http://localhost:8000/api";
+const initialForm = { edu_id: "", name: "", institution: "", email: "", phone: "", password: "" };
+
+function EducatorAvatar({ edu }) {
+  const [broken, setBroken] = useState(false);
+
+  if (edu.photo && !broken) {
+    return (
+      <img
+        src={edu.photo}
+        alt=""
+        className="w-8 h-8 rounded-full object-cover"
+        onError={() => setBroken(true)}
+      />
+    );
+  }
+  return (
+    <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-xs font-semibold text-brand-700">
+      {edu.name.charAt(0)}
+    </div>
+  );
+}
 
 export default function EducatorManagement() {
+  const { can } = usePermissions();
   const [educators, setEducators] = useState([]);
   const [institutions, setInstitutions] = useState([]);
-  const [form, setForm] = useState({ edu_id: "", name: "", institution: "", email: "", phone: "",password: "" });
+  const [form, setForm] = useState(initialForm);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formError, setFormError] = useState("");
   const fileRef = useRef();
+  const toast = useToast();
+
+  const fetchEducators = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/educators/');
+      setEducators(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      toast.error("Could not load educators. Is the backend running?");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInstitutions = async () => {
+    try {
+      const res = await api.get('/institutions/');
+      setInstitutions(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      // non-fatal
+    }
+  };
 
   useEffect(() => {
     fetchEducators();
     fetchInstitutions();
   }, []);
 
-  const fetchEducators = async () => {
-    try {
-      const res = await fetch(`${API}/educators/`, {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      setEducators(Array.isArray(data) ? data : []);
-    } catch {
-      setError("Could not load educators. Is the backend running?");
-    }
-  };
-
-  const fetchInstitutions = async () => {
-    try {
-      const res = await fetch(`${API}/institutions/`, {
-        credentials: 'include',
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setInstitutions(Array.isArray(data) ? data : []);
-    } catch {}
-  };
-
   const filtered = [...educators]
     .sort((a, b) => (a.edu_id > b.edu_id ? -1 : 1))
-    .filter(
-      (e) =>
-        e.name.toLowerCase().includes(search.toLowerCase()) ||
-        e.edu_id.toLowerCase().includes(search.toLowerCase())
+    .filter((e) =>
+      e.name.toLowerCase().includes(search.toLowerCase()) ||
+      e.edu_id.toLowerCase().includes(search.toLowerCase())
     );
+
+  const stats = useMemo(() => {
+    const institutionIds = new Set(educators.map((e) => e.institution));
+    return { total: educators.length, institutions: institutionIds.size };
+  }, [educators]);
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -65,7 +106,16 @@ export default function EducatorManagement() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const handleView = (edu) => {
+  const openCreate = () => {
+    setSelected(null);
+    setForm(initialForm);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setFormError("");
+    setFormOpen(true);
+  };
+
+  const openEdit = (edu) => {
     setSelected(edu);
     setPhotoFile(null);
     setPhotoPreview(edu.photo || null);
@@ -77,6 +127,14 @@ export default function EducatorManagement() {
       phone: edu.phone,
       password: "",
     });
+    setFormError("");
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setFormError("");
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const buildFormData = () => {
@@ -86,262 +144,220 @@ export default function EducatorManagement() {
     if (form.institution) fd.append("institution", form.institution);
     fd.append("email", form.email);
     fd.append("phone", form.phone);
-    if (form.password.trim()) {
-    fd.append("password", form.password);
-  }
+    if (form.password.trim()) fd.append("password", form.password);
     if (photoFile) fd.append("photo", photoFile);
     return fd;
   };
 
-  const handleInsert = async () => {
-  if (!form.edu_id.trim()) return alert("Enter an Educator ID.");
-  if (!form.name.trim()) return alert("Enter a name.");
-  if (!form.password.trim()) return alert("Enter a password.");
+  const handleSubmit = async () => {
+    if (!form.edu_id.trim()) return setFormError("Enter an Educator ID.");
+    if (!form.name.trim()) return setFormError("Enter a name.");
+    if (!selected && !form.password.trim()) return setFormError("Enter a password.");
 
-  setLoading(true);
-  setError("");
-
-  try {
-    const res = await fetch(`${API}/educators/`, {
-      method: "POST",
-      credentials: "include",
-      body: buildFormData(),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.log("Backend Error:", data);
-      alert(JSON.stringify(data, null, 2));
-      throw new Error(JSON.stringify(data));
-    }
-
-    await fetchEducators();
-    reset();
-
-  } catch (e) {
-    setError("Insert failed: " + e.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleUpdate = async () => {
-    if (!selected) return alert("Select a row first.");
-    setLoading(true);
-    setError("");
+    setSaving(true);
+    setFormError("");
     try {
-      const res = await fetch(`${API}/educators/${selected.id}/`, {
-        method: "PATCH",
-        credentials: 'include',
-        body: buildFormData(),
-      });
-      if (!res.ok) throw new Error(JSON.stringify(await res.json()));
+      if (selected) {
+        await api.patch(`/educators/${selected.id}/`, buildFormData());
+        toast.success('Educator updated.');
+      } else {
+        await api.post('/educators/', buildFormData());
+        toast.success('Educator created.');
+      }
+      closeForm();
       await fetchEducators();
-      reset();
     } catch (e) {
-      setError("Update failed: " + e.message);
+      setFormError(e.response?.data ? JSON.stringify(e.response.data) : e.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!selected) return alert("Select a row first.");
-    if (!window.confirm(`Delete "${selected.name}"?`)) return;
-    setLoading(true);
-    setError("");
+    if (!selected) return;
+    setSaving(true);
     try {
-      const res = await fetch(`${API}/educators/${selected.id}/`, {
-        method: "DELETE",
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error("Delete failed");
+      await api.delete(`/educators/${selected.id}/`);
+      toast.success('Educator deleted.');
+      setConfirmDelete(false);
+      setFormOpen(false);
       await fetchEducators();
-      reset();
     } catch (e) {
-      setError("Delete failed: " + e.message);
+      toast.error("Delete failed: " + e.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const reset = () => {
-    setForm({ edu_id: "", name: "", institution: "", email: "", phone: "" ,password: "",});
-    setPhotoFile(null);
-    setPhotoPreview(null);
-    setSelected(null);
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const styles = {
-    pageTitle: { fontSize: "22px", fontWeight: "700", marginBottom: "0.5rem", color: "#111" },
-    divider: { border: "none", borderTop: "1px solid #ddd", marginBottom: "1.5rem" },
-    card: { background: "#fff", border: "1px solid #e0e0e0", borderRadius: "10px", padding: "1.5rem 2rem", marginBottom: "1.5rem" },
-    sectionLabel: { fontSize: "11px", fontWeight: "600", color: "#999", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "1.2rem" },
-    fieldLabel: { display: "block", fontSize: "14px", fontWeight: "600", color: "#222", marginBottom: "6px" },
-    input: { width: "100%", padding: "10px 14px", border: "1px solid #ddd", borderRadius: "6px", fontSize: "14px", color: "#333", background: "#fff", boxSizing: "border-box", outline: "none" },
-    inputReadonly: { width: "100%", padding: "10px 14px", border: "1px solid #ddd", borderRadius: "6px", fontSize: "14px", color: "#888", background: "#f5f5f5", boxSizing: "border-box", outline: "none", cursor: "not-allowed" },
-    select: { width: "100%", padding: "10px 14px", border: "1px solid #ddd", borderRadius: "6px", fontSize: "14px", color: "#333", background: "#fff", boxSizing: "border-box", outline: "none", cursor: "pointer" },
-    fieldGroup: { marginBottom: "1.2rem" },
-    row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.2rem", marginBottom: "1.2rem" },
-    hrSection: { border: "none", borderTop: "1px solid #eee", margin: "1.2rem 0" },
-    btnInsert: { padding: "9px 28px", fontSize: "14px", fontWeight: "600", background: "#2563eb", color: "#fff", border: "none", borderRadius: "7px", cursor: "pointer" },
-    btnUpdate: { padding: "9px 28px", fontSize: "14px", fontWeight: "600", background: "#fff", color: "#b45309", border: "1.5px solid #f0c040", borderRadius: "7px", cursor: "pointer" },
-    btnDelete: { padding: "9px 28px", fontSize: "14px", fontWeight: "600", background: "#fff", color: "#dc2626", border: "1.5px solid #fca5a5", borderRadius: "7px", cursor: "pointer" },
-    photoCircle: { width: "60px", height: "60px", borderRadius: "50%", border: "2px dashed #bbb", background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", flexShrink: 0 },
-    tableCard: { background: "#fff", border: "1px solid #e0e0e0", borderRadius: "10px", overflow: "hidden" },
-    tableHeader: { padding: "1rem 1.5rem 0.5rem" },
-    th: { padding: "10px 16px", textAlign: "left", fontSize: "11px", fontWeight: "600", color: "#999", letterSpacing: "1px", textTransform: "uppercase", background: "#fafafa", borderBottom: "1px solid #eee" },
-    td: { padding: "12px 16px", fontSize: "14px", color: "#333", borderBottom: "1px solid #f0f0f0" },
-    viewBtn: { padding: "4px 14px", fontSize: "12px", border: "1px solid #ddd", borderRadius: "5px", background: "#f5f5f5", color: "#444", cursor: "pointer", fontWeight: 500 },
-    errorBanner: { margin: "0 0 1rem", padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: "6px", color: "#dc2626", fontSize: "13px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-  };
-
   return (
-    <div style={{ background: "#f9f9f9", minHeight: "100vh" }}>
-      <div className="max-w-4xl mx-auto p-6">
-        <div style={styles.pageTitle}>Educator Management</div>
-        <hr style={styles.divider} />
+    <div className="min-h-screen bg-paper-soft p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <PageHeader
+          title="Educator management"
+          subtitle="Teaching staff across your institutions"
+          actions={can('create_educator') && (
+            <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
+              Add educator
+            </Button>
+          )}
+        />
 
-        {error && (
-          <div style={styles.errorBanner}>
-            <span>{error}</span>
-            <button onClick={() => setError("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontWeight: 700, fontSize: "16px" }}>✕</button>
-          </div>
-        )}
-
-        <div style={styles.card}>
-          <div style={styles.sectionLabel}>Educator Management</div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "1.2rem", marginBottom: "1.2rem", alignItems: "end" }}>
-            <div>
-              <label style={styles.fieldLabel}>Educator ID</label>
-              <input style={selected ? styles.inputReadonly : styles.input} type="text" value={form.edu_id} onChange={set("edu_id")} placeholder="e.g. LNBTI239" readOnly={!!selected} />
-            </div>
-            <div>
-              <label style={styles.fieldLabel}>Name</label>
-              <input style={styles.input} type="text" value={form.name} onChange={set("name")} placeholder="Educator full name" />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-              <label style={{ ...styles.fieldLabel, fontSize: "12px", color: "#999" }}>Photo</label>
-              <div style={styles.photoCircle} onClick={() => fileRef.current?.click()}>
-                {photoPreview
-                  ? <img src={photoPreview} alt="photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : <span style={{ fontSize: "24px", color: "#bbb" }}>+</span>
-                }
-              </div>
-              {photoPreview && (
-                <button onClick={clearPhoto} style={{ fontSize: "11px", color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Remove</button>
-              )}
-              <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
-            </div>
-          </div>
-
-          <div style={styles.fieldGroup}>
-            <label style={styles.fieldLabel}>Search Educator</label>
-            <input style={styles.input} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or ID..." />
-          </div>
-
-          <hr style={styles.hrSection} />
-          <div style={styles.sectionLabel}>Contact Details</div>
-
-          <div style={styles.row2}>
-            <div>
-              <label style={styles.fieldLabel}>Email</label>
-              <input style={styles.input} type="email" value={form.email} onChange={set("email")} placeholder="email@example.com" />
-            </div>
-            <div>
-              <label style={styles.fieldLabel}>Phone</label>
-              <input style={styles.input} type="text" value={form.phone} onChange={set("phone")} placeholder="07X XXXXXXX" />
-            </div>
-          </div>
-          <div style={styles.fieldGroup}>
-          <label style={styles.fieldLabel}>
-            Password
-            {selected && (
-              <span style={{ color: "#888", fontWeight: "normal" }}>
-                {" "} (Leave blank to keep current password)
-              </span>
-            )}
-          </label>
-
-          <input
-            style={styles.input}
-            type="password"
-            value={form.password}
-            onChange={set("password")}
-            placeholder={
-              selected
-                ? "Enter new password"
-                : "Create a password"
-            }
-          />
+        <div className="grid sm:grid-cols-2 gap-4">
+          <StatCard label="Total educators" value={stats.total} tone="brand" icon={GraduationCap} />
+          <StatCard label="Institutions covered" value={stats.institutions} tone="ocean" icon={Building2} />
         </div>
 
-          <hr style={styles.hrSection} />
-          <div style={styles.sectionLabel}>Institution Details</div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+          <Card padding="p-0" className="overflow-hidden">
+            <div className="px-6 py-4 border-b border-ink/[0.06] flex items-center justify-between gap-4 flex-wrap">
+              <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">Educator list</p>
+              <div className="relative w-full sm:w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name or ID…"
+                  className="w-full pl-8 pr-3.5 py-2 border border-ink/10 rounded-lg text-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+                />
+              </div>
+            </div>
 
-          <div style={styles.fieldGroup}>
-            <label style={styles.fieldLabel}>Institution</label>
-            <select style={styles.select} value={form.institution} onChange={set("institution")}>
-              <option value="">Select institution...</option>
+            {loading ? (
+              <div className="p-6"><SkeletonRows rows={5} /></div>
+            ) : filtered.length === 0 ? (
+              <EmptyState icon={GraduationCap} title="No educators found" />
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-ink/[0.02]">
+                    {["", "Edu ID", "Name", "Institution", "Email", "Phone"].map((h) => (
+                      <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-ink-faint uppercase tracking-wider border-b border-ink/[0.06]">{h}</th>
+                    ))}
+                    {(can('edit_educator') || can('delete_educator')) && <th className="px-4 py-2.5 w-20 border-b border-ink/[0.06]" />}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink/[0.05]">
+                  {filtered.map((edu) => (
+                    <tr key={edu.edu_id} className="group hover:bg-ink/[0.02] transition-colors">
+                      <td className="px-4 py-2.5">
+                        <EducatorAvatar edu={edu} />
+                      </td>
+                      <td className="px-4 py-2.5 text-ink-faint">{edu.edu_id}</td>
+                      <td className="px-4 py-2.5 font-medium text-ink">{edu.name}</td>
+                      <td className="px-4 py-2.5 text-ink-soft">{edu.institution_name || "-"}</td>
+                      <td className="px-4 py-2.5 text-ink-soft">{edu.email}</td>
+                      <td className="px-4 py-2.5 text-ink-soft">{edu.phone}</td>
+                      {(can('edit_educator') || can('delete_educator')) && (
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {can('edit_educator') && (
+                              <button
+                                onClick={() => openEdit(edu)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-faint hover:text-brand-700 hover:bg-brand-50 transition-colors"
+                                aria-label="Edit educator"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            )}
+                            {can('delete_educator') && (
+                              <button
+                                onClick={() => { setSelected(edu); setConfirmDelete(true); }}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-faint hover:text-danger hover:bg-red-50 transition-colors"
+                                aria-label="Delete educator"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </motion.div>
+      </div>
+
+      <Modal
+        open={formOpen}
+        onClose={closeForm}
+        title={selected ? "Edit educator" : "Add educator"}
+        footer={(
+          <>
+            <Button variant="outline" size="md" onClick={closeForm}>Cancel</Button>
+            <Button variant="brand" size="md" disabled={saving} onClick={handleSubmit}>
+              {saving ? "Saving…" : selected ? "Save changes" : "Create educator"}
+            </Button>
+          </>
+        )}
+      >
+        <div className="space-y-5">
+          <div className="flex items-start gap-4">
+            <div className="flex flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="w-16 h-16 rounded-full border-2 border-dashed border-ink/15 bg-ink/[0.02] flex items-center justify-center overflow-hidden text-ink-faint hover:border-brand-300 transition-colors"
+              >
+                {photoPreview ? <img src={photoPreview} alt="" className="w-full h-full object-cover" /> : <Camera size={20} />}
+              </button>
+              {photoPreview && (
+                <button onClick={clearPhoto} className="text-[11px] text-danger hover:underline flex items-center gap-0.5">
+                  <X size={10} /> Remove
+                </button>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 flex-1">
+              <Input
+                label="Educator ID"
+                required
+                value={form.edu_id}
+                onChange={set("edu_id")}
+                placeholder="e.g. LNBTI239"
+                disabled={!!selected}
+              />
+              <Input label="Name" required value={form.name} onChange={set("name")} placeholder="Educator full name" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Email" type="email" value={form.email} onChange={set("email")} placeholder="email@example.com" />
+            <Input label="Phone" value={form.phone} onChange={set("phone")} placeholder="07X XXXXXXX" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label={selected ? "Password (leave blank to keep current)" : "Password"}
+              type="password"
+              required={!selected}
+              value={form.password}
+              onChange={set("password")}
+              placeholder={selected ? "Enter new password" : "Create a password"}
+            />
+            <Select label="Institution" value={form.institution} onChange={set("institution")}>
+              <option value="">Select institution…</option>
               {institutions.map((i) => (
                 <option key={i.id} value={i.id}>{i.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem" }}>
-            <button onClick={handleInsert} disabled={loading} style={{ ...styles.btnInsert, opacity: loading ? 0.7 : 1 }}>{loading ? "..." : "Insert"}</button>
-            <button onClick={handleUpdate} disabled={loading} style={{ ...styles.btnUpdate, opacity: loading ? 0.7 : 1 }}>{loading ? "..." : "Update"}</button>
-            <button onClick={handleDelete} disabled={loading} style={{ ...styles.btnDelete, opacity: loading ? 0.7 : 1 }}>{loading ? "..." : "Delete"}</button>
-            {selected && (
-              <button onClick={reset} style={{ padding: "9px 18px", fontSize: "14px", background: "none", border: "1px solid #ddd", borderRadius: "7px", cursor: "pointer", color: "#666" }}>Clear</button>
-            )}
-          </div>
+          {formError && <p className="text-sm text-danger break-words">{formError}</p>}
         </div>
+      </Modal>
 
-        <div style={styles.tableCard}>
-          <div style={styles.tableHeader}>
-            <div style={styles.sectionLabel}>Educator List</div>
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-            <thead>
-              <tr>
-                {["Photo", "Edu ID", "Name", "Institution", "Email", "Phone", "Action"].map((h) => (
-                  <th key={h} style={styles.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((edu) => (
-                <tr key={edu.edu_id} style={{ background: selected?.edu_id === edu.edu_id ? "#eff6ff" : "#fff" }}>
-                  <td style={styles.td}>
-                    {edu.photo
-                      ? <img src={edu.photo} alt="" style={{ width: "34px", height: "34px", borderRadius: "50%", objectFit: "cover" }} />
-                      : <div style={{ width: "34px", height: "34px", borderRadius: "50%", background: "#dbeafe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px", color: "#2563eb", fontWeight: 600 }}>{edu.name.charAt(0)}</div>
-                    }
-                  </td>
-                  <td style={{ ...styles.td, color: "#666" }}>{edu.edu_id}</td>
-                  <td style={{ ...styles.td, fontWeight: 500 }}>{edu.name}</td>
-                  <td style={{ ...styles.td, color: "#555" }}>{edu.institution_name || "-"}</td>
-                  <td style={{ ...styles.td, color: "#555" }}>{edu.email}</td>
-                  <td style={{ ...styles.td, color: "#555" }}>{edu.phone}</td>
-                  <td style={styles.td}>
-                    <button onClick={() => handleView(edu)} style={styles.viewBtn}>View</button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} style={{ padding: "2.5rem", textAlign: "center", color: "#bbb", fontSize: "14px" }}>No educators found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Delete educator"
+        message={`Delete "${selected?.name}"?`}
+        loading={saving}
+      />
     </div>
   );
 }

@@ -42,6 +42,16 @@ const studentService = {
     const res = await client.post('/guardians/', payload);
     return res.data;
   },
+
+  listMyGuardians: async () => {
+    const res = await client.get('/students/me/guardians/');
+    return res.data;
+  },
+
+  addMyGuardian: async (payload) => {
+    const res = await client.post('/students/me/guardians/', payload);
+    return res.data;
+  },
 };
 
 export default studentService;

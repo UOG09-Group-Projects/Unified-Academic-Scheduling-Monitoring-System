@@ -2,7 +2,7 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: "http://localhost:8000/api",
-  withCredentials: true,  
+  withCredentials: true,
 });
 
 // Attach token automatically to every request
@@ -15,5 +15,20 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+// Session expired or invalid — clear local state and send the user back to login
+// instead of leaving every page silently failing with 401s.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      localStorage.removeItem('user');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

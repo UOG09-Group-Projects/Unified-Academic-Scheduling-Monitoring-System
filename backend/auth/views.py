@@ -9,6 +9,7 @@ import json
 from institutions.models import User, Role
 from institutions.jwt_utils import generate_access_token, generate_refresh_token, decode_token, jwt_required
 from institutions.email_utils import send_verification_email, send_password_reset_email
+from institutions.access import load_permissions, resolve_institution_id, owned_institution_ids
 
 
 # ---------------------------------------------------------------------------
@@ -17,10 +18,9 @@ from institutions.email_utils import send_verification_email, send_password_rese
 
 def _user_json(user) -> dict:
     """
-    Build the user payload for every JSON response.
-    Expects user fetched with select_related(
-        'role', 'manager_profile', 'educator_profile'
-    ).
+    Build the user payload for every JSON response, including the
+    permission names granted to this user's role (used by the frontend to
+    show/hide actions) and the institution(s) they're scoped to.
     """
     data = {
         'id':       user.id,
@@ -29,14 +29,19 @@ def _user_json(user) -> dict:
         'role':     user.role.name,
         'role_id':  user.role_id,
     }
-    try:
-        data['institution_id'] = user.manager_profile.institution_id
-    except Exception:
-        pass
-    try:
-        data['institution_id'] = user.educator_profile.institution_id
-    except Exception:
-        pass
+
+    if user.role.name.upper() == 'OWNER':
+        data['institution_ids'] = owned_institution_ids(user)
+        if data['institution_ids']:
+            data['institution_id'] = data['institution_ids'][0]
+    else:
+        inst_id = resolve_institution_id(user)
+        if inst_id is not None:
+            data['institution_id'] = inst_id
+
+    perms = load_permissions(user)
+    data['permissions'] = 'ALL' if perms == 'ALL' else sorted(perms)
+
     return data
 
 
@@ -159,12 +164,9 @@ def refresh_view(request):
 @require_http_methods(['GET'])
 @jwt_required()
 def me_view(request):
-    # request.current_user is a JWT payload dict — re-fetch User from DB
-    # so we always return fresh data (role changes, profile updates etc.)
+    # Re-fetch so we always return fresh data (role changes, profile updates etc.)
     try:
-        user = User.objects.select_related(
-            'role', 'manager_profile', 'educator_profile',
-        ).get(pk=request.current_user['user_id'])
+        user = User.objects.select_related('role').get(pk=request.current_user.id)
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found.'}, status=404)
 

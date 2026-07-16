@@ -37,12 +37,16 @@ urlpatterns = [
     path('api/', include('educators.urls')),
     path('api/', include('students.urls')),
     path('api/', include('managers.urls')),
+    path('api/calendar/', include('events.urls')),
+    path('api/', include('enrollments.urls')),
+    path('api/', include('activities.urls')),
 
     path('api/dashboard/manager/', dashboard_views.manager_dashboard),
     path('api/dashboard/super-admin/', dashboard_views.super_admin_dashboard),
     path('api/dashboard/educator/', dashboard_views.educator_dashboard),
     path('api/dashboard/student/', dashboard_views.student_dashboard),
     path('api/dashboard/parent/', dashboard_views.parent_dashboard),
+    path('api/dashboard/parent/report/', dashboard_views.parent_monthly_report),
     
 ]
 

@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -9,15 +8,17 @@ from .serializers import (
 )
 from .services import ManagerService
 from institutions.views import JWTView
+from institutions.access import scoped_institution_filter, is_institution_allowed
 
 
 class ManagerListCreateView(JWTView):
+    permission_map = {'GET': 'view_manager', 'POST': 'create_manager'}
 
     def get(self, request):
         managers = Manager.objects.select_related(
             "institution",
             "user"
-        ).all()
+        ).filter(**scoped_institution_filter(request.current_user))
 
         serializer = ManagerListSerializer(
             managers,
@@ -31,6 +32,13 @@ class ManagerListCreateView(JWTView):
         serializer = ManagerCreateSerializer(data=request.data)
 
         if serializer.is_valid():
+            institution_id = serializer.validated_data.get('institution_id')
+            if not is_institution_allowed(request.current_user, institution_id):
+                return Response(
+                    {"error": "You cannot create managers for this institution."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             try:
                 manager = ManagerService.create_manager(
                     serializer.validated_data
@@ -54,19 +62,22 @@ class ManagerListCreateView(JWTView):
 
 
 class ManagerDetailView(JWTView):
+    permission_map = {'GET': 'view_manager', 'PUT': 'edit_manager', 'DELETE': 'delete_manager'}
 
-    def get_object(self, pk):
+    def get_object(self, request, pk):
         try:
-            return Manager.objects.select_related(
+            manager = Manager.objects.select_related(
                 "institution",
                 "user"
             ).get(pk=pk)
-
         except Manager.DoesNotExist:
             return None
+        if not is_institution_allowed(request.current_user, manager.institution_id):
+            return None
+        return manager
 
     def get(self, request, pk):
-        manager = self.get_object(pk)
+        manager = self.get_object(request, pk)
 
         if not manager:
             return Response(
@@ -82,7 +93,7 @@ class ManagerDetailView(JWTView):
         return Response(serializer.data)
 
     def put(self, request, pk):
-        manager = self.get_object(pk)
+        manager = self.get_object(request, pk)
 
         if not manager:
             return Response(
@@ -97,6 +108,12 @@ class ManagerDetailView(JWTView):
         )
 
         if serializer.is_valid():
+            target_institution = serializer.validated_data.get('institution_id', manager.institution_id)
+            if not is_institution_allowed(request.current_user, target_institution):
+                return Response(
+                    {"error": "You cannot move managers to this institution."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
             try:
                 manager = ManagerService.update_manager(
@@ -120,7 +137,7 @@ class ManagerDetailView(JWTView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        manager = self.get_object(pk)
+        manager = self.get_object(request, pk)
 
         if not manager:
             return Response(

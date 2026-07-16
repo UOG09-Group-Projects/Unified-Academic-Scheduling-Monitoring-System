@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     'batches',
     'course',
     'students',
+    'events',
+    'enrollments',
+    'activities',
 ]
 
 MIDDLEWARE = [
@@ -104,10 +107,12 @@ DATABASES = {
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://localhost:5174",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
+    "http://localhost:5174",
 ]
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -128,12 +133,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 REST_FRAMEWORK = {
-
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-
-    ),
+    # Auth is handled by JWTView / jwt_required (custom PyJWT + httponly cookie,
+    # see institutions/jwt_utils.py) — not djangorestframework_simplejwt, which
+    # expects its own token format and would reject our tokens if enabled here.
+    'DEFAULT_AUTHENTICATION_CLASSES': (),
 }
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

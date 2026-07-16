@@ -22,7 +22,9 @@ def _resolve_institution_id(user) -> int | None:
     - OWNER       → owns the institution directly (Institution.owner FK)
     - MANAGER     → linked via manager_profile
     - EDUCATOR    → linked via educator_profile
-    - STUDENT     → linked via student_profile → batch → institution
+    - STUDENT     → linked via student_profile → batch → institution,
+                     falling back to student_profile.institution when no
+                     batch has been assigned yet (self-registered students)
     - SUPER_ADMIN / PARENT → not scoped to one institution, returns None
     """
     role_name = user.role.name.upper()
@@ -48,10 +50,12 @@ def _resolve_institution_id(user) -> int | None:
 
     if role_name == 'STUDENT':
         try:
-            batch = user.student_profile.batch
-            return batch.institution_id if batch else None
+            student = user.student_profile
         except Exception:
             return None
+        if student.batch_id:
+            return student.batch.institution_id
+        return student.institution_id
 
     return None
 
@@ -146,6 +150,9 @@ def jwt_required(roles: list[str] | None = None):
 
             # Inject institution_id from JWT so services can read it
             user.institution_id = payload.get('institution_id')
+
+            from institutions.access import load_permissions
+            user.permissions = load_permissions(user)
 
             request.current_user = user
             return view_func(request, *args, **kwargs)

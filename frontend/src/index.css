@@ -1,8 +1,21 @@
 /* src/index.css */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #FBF9F5;
+}
+
+::selection {
+  background-color: #F5BE95;
+  color: #12141C;
+}
 
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
@@ -11,4 +24,14 @@
 
 .animate-skeleton {
   animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* thin, unobtrusive scrollbars for panels/lists */
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: #E9E4D8;
+  border-radius: 999px;
 }

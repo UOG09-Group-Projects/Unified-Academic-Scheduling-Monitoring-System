@@ -1,137 +1,199 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Plus, BookOpen, GraduationCap } from 'lucide-react';
 import CourseForm from "./CourseForm";
 import CourseTable from "./CourseTable";
 import courseService from "../../services/courseService";
 import lookupService from "../../services/lookupService";
+import PageHeader from '../ui/PageHeader';
+import Card from '../ui/Card';
+import Modal from '../ui/Modal';
+import Badge from '../ui/Badge';
+import Button from '../ui/Button';
+import ConfirmDialog from '../ui/ConfirmDialog';
+import StatCard from '../StatCard';
+import { SkeletonRows } from '../ui/Skeleton';
+import { useToast } from '../ui/Toast';
+import { usePermissions } from '../../auth/PermissionsContext';
 
 export default function CoursePage() {
-
-  const user = JSON.parse(
-    localStorage.getItem("user")
-  );
+  const user = JSON.parse(localStorage.getItem("user"));
+  const { can } = usePermissions();
+  const toast = useToast();
 
   const [courses, setCourses] = useState([]);
   const [institutions, setInstitutions] = useState([]);
   const [allBatches, setAllBatches] = useState([]);
   const [allEducators, setAllEducators] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState(null);
   const [search, setSearch] = useState('');
-  const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState(null);
   const [viewCourse, setViewCourse] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  // ── Effect 1: Load institutions once (no institution filter needed here) ──
   useEffect(() => {
     lookupService.listInstitutions()
-      .then(data => setInstitutions(data))
-      .catch(() => showToast('Failed to load institutions.', 'error'));
+      .then((data) => setInstitutions(data))
+      .catch(() => toast.error('Failed to load institutions.'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Effect 2: Load batches + educators filtered by user's institution ──
   useEffect(() => {
-  const params = user?.institution_id
-    ? { institution_id: user.institution_id }
-    : {};  // ← no filter for super admin, loads everything
+    const params = user?.institution_id ? { institution_id: user.institution_id } : {};
 
-  Promise.all([
-    lookupService.listBatches(params),
-    lookupService.listEducators(params),
-  ])
-    .then(([batches, educators]) => {
-      setAllBatches(batches);
-      setAllEducators(educators);
-    })
-    .catch(() => showToast('Failed to load form data.', 'error'));
+    Promise.all([
+      lookupService.listBatches(params),
+      lookupService.listEducators(params),
+    ])
+      .then(([batches, educators]) => {
+        setAllBatches(batches);
+        setAllEducators(educators);
+      })
+      .catch(() => toast.error('Failed to load form data.'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.institution_id]);
 
-}, [user?.institution_id]);
-
-  // ── Effect 3: Load courses, re-runs when search changes ──
   useEffect(() => {
     let ignore = false;
 
     async function loadCourses() {
+      setLoading(true);
       try {
         const data = await courseService.list(search);
         if (!ignore) setCourses(data);
       } catch {
-        if (!ignore) showToast('Failed to load courses.', 'error');
+        if (!ignore) toast.error('Failed to load courses.');
+      } finally {
+        if (!ignore) setLoading(false);
       }
     }
 
     loadCourses();
     return () => { ignore = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  // ── Refetch after mutations ──
   const refetchCourses = async () => {
     try {
       const data = await courseService.list(search);
       setCourses(data);
     } catch {
-      showToast('Failed to refresh course list.', 'error');
+      toast.error('Failed to refresh course list.');
     }
+  };
+
+  const stats = useMemo(() => ({
+    total: courses.length,
+    educators: courses.reduce((sum, c) => sum + (c.educator_count || 0), 0),
+  }), [courses]);
+
+  const openCreate = () => {
+    setSelectedCourse(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (course) => {
+    setSelectedCourse(course);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setSelectedCourse(null);
   };
 
   const handleInsert = async (payload) => {
     try {
-      await courseService.create({
-        ...payload,
-        institution: user.institution_id,  // always injected from auth, not form
-      });
-      showToast('Course created successfully!');
+      await courseService.create({ ...payload, institution: user.institution_id });
+      toast.success('Course created successfully!');
       await refetchCourses();
-      setSelectedCourse(null);
+      closeForm();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Insert failed.', 'error');
+      toast.error(err.response?.data?.error || 'Insert failed.');
     }
   };
 
   const handleUpdate = async (id, payload) => {
-    if (!id) return showToast('Select a course to update.', 'error');
+    if (!id) return toast.error('Select a course to update.');
     try {
-      await courseService.update(id, {
-        ...payload,
-        institution: user.institution_id,
-      });
-      showToast('Course updated successfully!');
+      await courseService.update(id, { ...payload, institution: user.institution_id });
+      toast.success('Course updated successfully!');
       await refetchCourses();
-      setSelectedCourse(null);
+      closeForm();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Update failed.', 'error');
+      toast.error(err.response?.data?.error || 'Update failed.');
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await courseService.remove(id);
-      showToast('Course deleted.');
+      await courseService.remove(deleteTarget.id);
+      toast.success('Course deleted.');
+      setDeleteTarget(null);
       await refetchCourses();
-      setSelectedCourse(null);
     } catch (err) {
-      showToast(err.response?.data?.error || 'Delete failed.', 'error');
+      toast.error(err.response?.data?.error || 'Delete failed.');
+    } finally {
+      setDeleting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-xl font-medium text-gray-800 pb-4 mb-5 border-b border-gray-200">
-          Course Management
-        </h1>
+    <div className="min-h-screen bg-paper-soft p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <PageHeader
+          title="Course management"
+          subtitle="Courses offered, with their assigned batches and educators"
+          actions={can('create_course') && (
+            <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
+              Add course
+            </Button>
+          )}
+        />
 
-        <div className="mb-4">
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by Course Name or Code"
-            className="w-full border rounded px-4 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+        <div className="grid sm:grid-cols-2 gap-4">
+          <StatCard label="Total courses" value={stats.total} tone="brand" icon={BookOpen} />
+          <StatCard label="Educator assignments" value={stats.educators} tone="ocean" icon={GraduationCap} />
         </div>
 
+        <Card padding="p-0" className="overflow-hidden">
+          <div className="px-6 py-4 border-b border-ink/[0.06] flex items-center justify-between gap-4 flex-wrap">
+            <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">Course list</p>
+            <div className="relative w-full sm:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name or code…"
+                className="w-full pl-8 pr-3.5 py-2 border border-ink/10 rounded-lg text-sm outline-none
+                           focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="p-6"><SkeletonRows rows={5} /></div>
+          ) : (
+            <CourseTable
+              courses={courses}
+              onEdit={can('edit_course') ? openEdit : null}
+              onView={setViewCourse}
+              onDelete={can('delete_course') ? setDeleteTarget : null}
+            />
+          )}
+        </Card>
+      </div>
+
+      <Modal
+        open={formOpen}
+        onClose={closeForm}
+        title={selectedCourse ? 'Edit course' : 'Add course'}
+        width="max-w-xl"
+      >
         <CourseForm
           key={`${selectedCourse?.id ?? 'new'}-${allBatches.length}-${allEducators.length}`}
           selectedCourse={selectedCourse}
@@ -140,60 +202,46 @@ export default function CoursePage() {
           allEducators={allEducators}
           onInsert={handleInsert}
           onUpdate={handleUpdate}
-          onDelete={handleDelete}
-          onClear={() => setSelectedCourse(null)}
+          onCancel={closeForm}
         />
+      </Modal>
 
-        <CourseTable
-          courses={courses}
-          onEdit={course => setSelectedCourse(course)}
-          onView={course => setViewCourse(course)}
-          onSelect={setSelectedCourse}
-          selectedId={selectedCourse?.id}
-        />
-      </div>
-
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg text-white text-sm
-          ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
-          {toast.message}
-        </div>
-      )}
-
-      {viewCourse && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-1">{viewCourse.name}</h2>
-            <p className="text-sm text-gray-500 mb-4">
+      <Modal
+        open={Boolean(viewCourse)}
+        onClose={() => setViewCourse(null)}
+        title={viewCourse?.name}
+        width="max-w-md"
+        footer={<Button variant="outline" size="md" onClick={() => setViewCourse(null)}>Close</Button>}
+      >
+        {viewCourse && (
+          <>
+            <p className="text-sm text-ink-faint mb-4">
               Code: {viewCourse.code} | {viewCourse.institution_name}
             </p>
             <div className="mb-3">
-              <p className="text-sm font-medium text-gray-700 mb-1">Batches</p>
-              <div className="flex flex-wrap gap-1">
-                {viewCourse.batches.map(b => (
-                  <span key={b.id} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">
-                    {b.batch_name}
-                  </span>
-                ))}
+              <p className="text-sm font-medium text-ink mb-1.5">Batches</p>
+              <div className="flex flex-wrap gap-1.5">
+                {viewCourse.batches.map((b) => <Badge key={b.id} tone="brand">{b.batch_name}</Badge>)}
               </div>
             </div>
-            <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-1">Educators</p>
-              <div className="flex flex-wrap gap-1">
-                {viewCourse.educators.map(e => (
-                  <span key={e.id} className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">
-                    {e.educator_name}
-                  </span>
-                ))}
+            <div>
+              <p className="text-sm font-medium text-ink mb-1.5">Educators</p>
+              <div className="flex flex-wrap gap-1.5">
+                {viewCourse.educators.map((e) => <Badge key={e.id} tone="success">{e.educator_name}</Badge>)}
               </div>
             </div>
-            <button onClick={() => setViewCourse(null)}
-              className="w-full py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm text-gray-700">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete course"
+        message={deleteTarget ? `Delete "${deleteTarget.name}"? This removes all batch and educator assignments.` : ''}
+        loading={deleting}
+      />
     </div>
   );
 }

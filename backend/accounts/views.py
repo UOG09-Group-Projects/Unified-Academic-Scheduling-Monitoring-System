@@ -11,7 +11,7 @@ from institutions.jwt_utils import jwt_required
 @jwt_required()
 def profile_view(request):
     try:
-        user = User.objects.select_related('role').get(pk=request.current_user['user_id'])
+        user = request.current_user
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found.'}, status=404)
 
@@ -73,23 +73,25 @@ def profile_view(request):
 @require_http_methods(['POST'])
 @jwt_required()
 def profile_picture_view(request):
-    """Separate endpoint for profile picture upload (POST handles multipart correctly)."""
-    try:
-        user = User.objects.select_related('role').get(pk=request.current_user['user_id'])
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found.'}, status=404)
+    user = request.current_user  # ✅ already a User instance
 
     picture = request.FILES.get('profile_picture')
     if not picture:
         return JsonResponse({'error': 'No image provided.'}, status=400)
 
-    user.profile_picture = picture
-    user.save()
+    # Delete old file to avoid orphans
+    if user.profile_picture:
+        import os
+        old_path = user.profile_picture.path
+        if os.path.exists(old_path):
+            os.remove(old_path)
 
-    picture_url = request.build_absolute_uri(user.profile_picture.url)
+    user.profile_picture = picture
+    user.save(update_fields=['profile_picture'])
+
     return JsonResponse({
         'message': 'Profile picture updated successfully.',
-        'profile_picture': picture_url,
+        'profile_picture': request.build_absolute_uri(user.profile_picture.url),
     })
 
 
@@ -97,10 +99,7 @@ def profile_picture_view(request):
 @require_http_methods(['POST'])
 @jwt_required()
 def change_password_view(request):
-    try:
-        user = User.objects.get(pk=request.current_user['user_id'])
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found.'}, status=404)
+    user = request.current_user  # ✅ already a User instance
 
     try:
         body = json.loads(request.body)
@@ -124,5 +123,6 @@ def change_password_view(request):
         return JsonResponse({'error': 'Password must be at least 8 characters.'}, status=400)
 
     user.set_password(new)
-    user.save()
+    user.save(update_fields=['hashed_password', 'salt'])
+
     return JsonResponse({'message': 'Password changed successfully.'})

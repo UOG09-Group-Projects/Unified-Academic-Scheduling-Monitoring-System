@@ -146,7 +146,7 @@ const STATUS_CONFIG = {
 };
 
 const PLAN_CONFIG = {
-  Enterprise: { bg: "bg-[#395886]/10", text: "text-[#395886]" },
+  Enterprise: { bg: "bg-brand-600/10", text: "text-brand-700" },
   Professional: { bg: "bg-purple-50", text: "text-purple-700" },
   Starter: { bg: "bg-sky-50", text: "text-sky-700" },
 };
@@ -163,14 +163,14 @@ function ConfirmDialog({ open, title, message, confirmLabel, confirmClass, onCon
             <AlertTriangle className="w-5 h-5 text-red-600" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-500 mt-1">{message}</p>
+            <h3 className="text-lg font-semibold text-ink">{title}</h3>
+            <p className="text-sm text-ink-faint mt-1">{message}</p>
           </div>
         </div>
         <div className="flex gap-3 mt-6 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-ink-soft border border-ink/10 hover:bg-ink/[0.03] transition-colors"
           >
             Cancel
           </button>
@@ -206,7 +206,7 @@ function InstitutionModal({ institution, onClose, onAction }) {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl">
+        <div className="sticky top-0 bg-white border-b border-ink/[0.06] px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
@@ -215,11 +215,11 @@ function InstitutionModal({ institution, onClose, onAction }) {
               {institution.avatar}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{institution.name}</h2>
-              <p className="text-xs text-gray-500">{institution.email}</p>
+              <h2 className="text-lg font-semibold text-ink">{institution.name}</h2>
+              <p className="text-xs text-ink-faint">{institution.email}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-ink-faint hover:text-gray-600 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -244,34 +244,34 @@ function InstitutionModal({ institution, onClose, onAction }) {
               { icon: BookOpen, label: "Courses", value: institution.courses },
               { icon: Building2, label: "Instructors", value: institution.instructors },
             ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="bg-[#F0F3FA] rounded-xl p-4 text-center">
-                <Icon className="w-5 h-5 text-[#395886] mx-auto mb-1" />
-                <p className="text-xl font-bold text-gray-900">{value}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+              <div key={label} className="bg-paper-soft rounded-xl p-4 text-center">
+                <Icon className="w-5 h-5 text-brand-700 mx-auto mb-1" />
+                <p className="text-xl font-bold text-ink">{value}</p>
+                <p className="text-xs text-ink-faint mt-0.5">{label}</p>
               </div>
             ))}
           </div>
 
           {/* Subscription details */}
-          <div className="border border-gray-100 rounded-xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+          <div className="border border-ink/[0.06] rounded-xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-ink-soft flex items-center gap-2">
               <CreditCard className="w-4 h-4" /> Subscription Details
             </h3>
             <div className="grid grid-cols-2 gap-y-3 text-sm">
               <div>
-                <p className="text-gray-500">Start Date</p>
-                <p className="font-medium text-gray-900">{new Date(institution.subscriptionStart).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                <p className="text-ink-faint">Start Date</p>
+                <p className="font-medium text-ink">{new Date(institution.subscriptionStart).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
               </div>
               <div>
-                <p className="text-gray-500">End Date</p>
-                <p className="font-medium text-gray-900">{new Date(institution.subscriptionEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                <p className="text-ink-faint">End Date</p>
+                <p className="font-medium text-ink">{new Date(institution.subscriptionEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
               </div>
               <div>
-                <p className="text-gray-500">Total Revenue</p>
-                <p className="font-medium text-gray-900">{institution.revenue}</p>
+                <p className="text-ink-faint">Total Revenue</p>
+                <p className="font-medium text-ink">{institution.revenue}</p>
               </div>
               <div>
-                <p className="text-gray-500">Days Remaining</p>
+                <p className="text-ink-faint">Days Remaining</p>
                 <p className={`font-medium ${days < 0 ? "text-red-600" : days < 30 ? "text-amber-600" : "text-emerald-600"}`}>
                   {days < 0 ? `Expired ${Math.abs(days)}d ago` : `${days} days`}
                 </p>
@@ -280,13 +280,13 @@ function InstitutionModal({ institution, onClose, onAction }) {
             {/* Subscription progress bar */}
             {days >= 0 && (
               <div>
-                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <div className="flex justify-between text-xs text-ink-faint mb-1">
                   <span>Subscription period</span>
                   <span>{Math.max(0, Math.min(100, Math.round((1 - days / 365) * 100)))}% used</span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#395886] rounded-full transition-all"
+                    className="h-full bg-brand-600 rounded-full transition-all"
                     style={{ width: `${Math.max(0, Math.min(100, Math.round((1 - days / 365) * 100)))}%` }}
                   />
                 </div>
@@ -295,8 +295,8 @@ function InstitutionModal({ institution, onClose, onAction }) {
           </div>
 
           {/* Contact info */}
-          <div className="border border-gray-100 rounded-xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-700">Contact Information</h3>
+          <div className="border border-ink/[0.06] rounded-xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-ink-soft">Contact Information</h3>
             <div className="grid grid-cols-1 gap-2 text-sm">
               {[
                 { label: "Contact Person", value: institution.contactPerson },
@@ -306,8 +306,8 @@ function InstitutionModal({ institution, onClose, onAction }) {
                 { label: "Joined", value: new Date(institution.joinedDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between">
-                  <span className="text-gray-500">{label}</span>
-                  <span className="font-medium text-gray-900 text-right max-w-[60%]">{value}</span>
+                  <span className="text-ink-faint">{label}</span>
+                  <span className="font-medium text-ink text-right max-w-[60%]">{value}</span>
                 </div>
               ))}
             </div>
@@ -317,7 +317,7 @@ function InstitutionModal({ institution, onClose, onAction }) {
           <div className="flex flex-wrap gap-3">
             <button
               onClick={() => onAction("email", institution)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-[#395886] border border-[#395886]/30 hover:bg-[#395886]/5 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-brand-700 border border-brand-200 hover:bg-brand-600/5 transition-colors"
             >
               <Mail className="w-4 h-4" /> Email Institution
             </button>
@@ -419,7 +419,7 @@ export default function Institutions() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F3FA] p-4 md:p-8">
+    <div className="min-h-screen bg-paper-soft p-4 md:p-8">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white animate-fade-in
@@ -455,14 +455,14 @@ export default function Institutions() {
       <div className="mb-8">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Institutions</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage all registered institutions and their subscriptions</p>
+            <h1 className="text-2xl font-bold text-ink">Institutions</h1>
+            <p className="text-sm text-ink-faint mt-1">Manage all registered institutions and their subscriptions</p>
           </div>
           <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm transition-colors">
+            <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-ink-soft bg-white border border-ink/10 hover:bg-ink/[0.03] shadow-sm transition-colors">
               <Download className="w-4 h-4" /> Export
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-[#395886] hover:bg-[#2f4a73] shadow-sm transition-colors">
+            <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors">
               <Plus className="w-4 h-4" /> Add Institution
             </button>
           </div>
@@ -472,34 +472,34 @@ export default function Institutions() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Total", value: stats.total, color: "text-gray-900", bg: "bg-white" },
+          { label: "Total", value: stats.total, color: "text-ink", bg: "bg-white" },
           { label: "Active", value: stats.active, color: "text-emerald-600", bg: "bg-white" },
           { label: "Suspended", value: stats.suspended, color: "text-red-600", bg: "bg-white" },
           { label: "Trial / Expired", value: `${stats.trial} / ${stats.expired}`, color: "text-amber-600", bg: "bg-white" },
         ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`${bg} rounded-2xl p-5 shadow-sm border border-gray-100`}>
-            <p className="text-sm text-gray-500 font-medium">{label}</p>
+          <div key={label} className={`${bg} rounded-2xl p-5 shadow-sm border border-ink/[0.06]`}>
+            <p className="text-sm text-ink-faint font-medium">{label}</p>
             <p className={`text-3xl font-bold mt-1 ${color}`}>{value}</p>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-ink/[0.06] p-4 mb-6">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search institutions…"
-              className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#395886]/30 bg-[#F0F3FA]"
+              className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-ink/10 focus:outline-none focus:ring-2 focus:ring-[#395886]/30 bg-paper-soft"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2.5 text-sm rounded-xl border border-gray-200 bg-[#F0F3FA] focus:outline-none focus:ring-2 focus:ring-[#395886]/30 text-gray-700"
+            className="px-3 py-2.5 text-sm rounded-xl border border-ink/10 bg-paper-soft focus:outline-none focus:ring-2 focus:ring-[#395886]/30 text-ink-soft"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -510,7 +510,7 @@ export default function Institutions() {
           <select
             value={planFilter}
             onChange={(e) => setPlanFilter(e.target.value)}
-            className="px-3 py-2.5 text-sm rounded-xl border border-gray-200 bg-[#F0F3FA] focus:outline-none focus:ring-2 focus:ring-[#395886]/30 text-gray-700"
+            className="px-3 py-2.5 text-sm rounded-xl border border-ink/10 bg-paper-soft focus:outline-none focus:ring-2 focus:ring-[#395886]/30 text-ink-soft"
           >
             <option value="all">All Plans</option>
             <option value="Enterprise">Enterprise</option>
@@ -521,25 +521,25 @@ export default function Institutions() {
       </div>
 
       {/* Institutions Table / Cards */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-ink/[0.06] overflow-hidden">
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-[#F0F3FA]/60">
-                <th className="text-left px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Institution</th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan</th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Students</th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Courses</th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Subscription</th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+              <tr className="border-b border-ink/[0.06] bg-paper-soft/60">
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-ink-faint uppercase tracking-wider">Institution</th>
+                <th className="text-left px-4 py-3.5 text-xs font-semibold text-ink-faint uppercase tracking-wider">Plan</th>
+                <th className="text-left px-4 py-3.5 text-xs font-semibold text-ink-faint uppercase tracking-wider">Students</th>
+                <th className="text-left px-4 py-3.5 text-xs font-semibold text-ink-faint uppercase tracking-wider">Courses</th>
+                <th className="text-left px-4 py-3.5 text-xs font-semibold text-ink-faint uppercase tracking-wider">Subscription</th>
+                <th className="text-left px-4 py-3.5 text-xs font-semibold text-ink-faint uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-gray-400">
+                  <td colSpan={7} className="text-center py-16 text-ink-faint">
                     <Building2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p className="font-medium">No institutions found</p>
                   </td>
@@ -548,7 +548,7 @@ export default function Institutions() {
                 const status = STATUS_CONFIG[inst.status];
                 const plan = PLAN_CONFIG[inst.plan] || PLAN_CONFIG.Starter;
                 return (
-                  <tr key={inst.id} className="hover:bg-[#F0F3FA]/40 transition-colors group">
+                  <tr key={inst.id} className="hover:bg-paper-soft/40 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div
@@ -558,8 +558,8 @@ export default function Institutions() {
                           {inst.avatar}
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-900">{inst.name}</p>
-                          <p className="text-xs text-gray-400">{inst.email}</p>
+                          <p className="font-semibold text-ink">{inst.name}</p>
+                          <p className="text-xs text-ink-faint">{inst.email}</p>
                         </div>
                       </div>
                     </td>
@@ -569,20 +569,20 @@ export default function Institutions() {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-1.5 text-gray-700">
-                        <Users className="w-3.5 h-3.5 text-gray-400" />
+                      <div className="flex items-center gap-1.5 text-ink-soft">
+                        <Users className="w-3.5 h-3.5 text-ink-faint" />
                         {inst.students.toLocaleString()}
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-1.5 text-gray-700">
-                        <BookOpen className="w-3.5 h-3.5 text-gray-400" />
+                      <div className="flex items-center gap-1.5 text-ink-soft">
+                        <BookOpen className="w-3.5 h-3.5 text-ink-faint" />
                         {inst.courses}
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <p className="text-gray-700 font-medium">{inst.planPrice}</p>
-                      <p className="text-xs text-gray-400">Ends {new Date(inst.subscriptionEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                      <p className="text-ink-soft font-medium">{inst.planPrice}</p>
+                      <p className="text-xs text-ink-faint">Ends {new Date(inst.subscriptionEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                     </td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text}`}>
@@ -594,7 +594,7 @@ export default function Institutions() {
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => setSelectedInstitution(inst)}
-                          className="p-1.5 rounded-lg hover:bg-[#395886]/10 text-[#395886] transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-brand-600/10 text-brand-700 transition-colors"
                           title="View details"
                         >
                           <Eye className="w-4 h-4" />
@@ -625,7 +625,7 @@ export default function Institutions() {
         {/* Mobile Cards */}
         <div className="md:hidden divide-y divide-gray-100">
           {filtered.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-ink-faint">
               <Building2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-medium">No institutions found</p>
             </div>
@@ -633,7 +633,7 @@ export default function Institutions() {
             const status = STATUS_CONFIG[inst.status];
             const plan = PLAN_CONFIG[inst.plan] || PLAN_CONFIG.Starter;
             return (
-              <div key={inst.id} className="p-4 hover:bg-[#F0F3FA]/40 transition-colors">
+              <div key={inst.id} className="p-4 hover:bg-paper-soft/40 transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div
@@ -643,8 +643,8 @@ export default function Institutions() {
                       {inst.avatar}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{inst.name}</p>
-                      <p className="text-xs text-gray-400">{inst.email}</p>
+                      <p className="font-semibold text-ink">{inst.name}</p>
+                      <p className="text-xs text-ink-faint">{inst.email}</p>
                     </div>
                   </div>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.text} shrink-0`}>
@@ -652,7 +652,7 @@ export default function Institutions() {
                     {status.label}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                <div className="flex items-center gap-4 mt-3 text-xs text-ink-faint">
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" />{inst.students.toLocaleString()}</span>
                   <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{inst.courses} courses</span>
                   <span className={`px-2 py-0.5 rounded-md font-medium ${plan.bg} ${plan.text}`}>{inst.plan}</span>
@@ -660,7 +660,7 @@ export default function Institutions() {
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => setSelectedInstitution(inst)}
-                    className="flex-1 py-2 rounded-lg text-xs font-medium text-[#395886] border border-[#395886]/20 hover:bg-[#395886]/5 transition-colors flex items-center justify-center gap-1"
+                    className="flex-1 py-2 rounded-lg text-xs font-medium text-brand-700 border border-brand-200 hover:bg-brand-600/5 transition-colors flex items-center justify-center gap-1"
                   >
                     <Eye className="w-3.5 h-3.5" /> View Details
                   </button>
@@ -677,7 +677,7 @@ export default function Institutions() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-gray-100 bg-[#F0F3FA]/40 flex items-center justify-between text-xs text-gray-500">
+        <div className="px-6 py-3 border-t border-ink/[0.06] bg-paper-soft/40 flex items-center justify-between text-xs text-ink-faint">
           <span>Showing {filtered.length} of {institutions.length} institutions</span>
           <span>{stats.active} active · {stats.suspended} suspended</span>
         </div>

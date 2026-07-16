@@ -1,58 +1,87 @@
- 
-export default function CourseTable({ courses, onEdit, onView }) {
+import { motion } from 'framer-motion';
+import { Eye, Pencil, Trash2, BookOpen } from 'lucide-react';
+import Badge from '../ui/Badge';
+import EmptyState from '../ui/EmptyState';
+
+const row = {
+  hidden: { opacity: 0, y: 8 },
+  show: (i = 0) => ({
+    opacity: 1, y: 0,
+    transition: { duration: 0.25, delay: Math.min(i, 8) * 0.03 },
+  }),
+};
+
+export default function CourseTable({ courses, onEdit, onView, onDelete }) {
+  if (!courses.length) {
+    return <EmptyState icon={BookOpen} title="No courses found" />;
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow mt-6 overflow-x-auto">
-      <table className="w-full text-sm text-left">
-        <thead className="bg-gray-100 text-gray-600 text-xs uppercase">
-          <tr>
-            <th className="px-4 py-3">ID</th>
-            <th className="px-4 py-3">Name</th>
-            <th className="px-4 py-3">Code</th>
-            <th className="px-4 py-3">Institution</th>
-            <th className="px-4 py-3">Batches</th>
-            <th className="px-4 py-3">Educators</th>
-            <th className="px-4 py-3">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {courses.length === 0 ? (
-            <tr>
-              <td colSpan={7} className="text-center py-8 text-gray-400">No courses found.</td>
-            </tr>
-          ) : courses.map(course => (
-            <tr key={course.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-gray-500">{course.id}</td>
-              <td className="px-4 py-3 font-medium text-gray-800"
-                onClick={() => onEdit(course)}
-                style={{ cursor: 'pointer' }}>
-                {course.name}
-              </td>
-              <td className="px-4 py-3 text-gray-600">{course.code}</td>
-              <td className="px-4 py-3 text-gray-600">{course.institution_name}</td>
-              <td className="px-4 py-3">
-                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">
-                  {course.batch_count}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                  {course.educator_count}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                <button onClick={() => onView(course)}
-                  className="px-3 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">
-                  View
+    <table className="w-full text-sm text-left">
+      <thead className="bg-ink/[0.02] text-ink-faint text-xs uppercase">
+        <tr>
+          <th className="px-6 py-3">Course</th>
+          <th className="px-6 py-3">Code</th>
+          <th className="px-6 py-3">Institution</th>
+          <th className="px-6 py-3">Batches</th>
+          <th className="px-6 py-3">Educators</th>
+          <th className="px-6 py-3 w-28" />
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-ink/[0.05]">
+        {courses.map((course, i) => (
+          <motion.tr
+            key={course.id}
+            custom={i}
+            variants={row}
+            initial="hidden"
+            animate="show"
+            className="group hover:bg-ink/[0.02] transition-colors"
+          >
+            <td className="px-6 py-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center shrink-0">
+                  <BookOpen size={14} />
+                </div>
+                <span className="font-medium text-ink">{course.name}</span>
+              </div>
+            </td>
+            <td className="px-6 py-3 text-ink-soft">{course.code}</td>
+            <td className="px-6 py-3 text-ink-soft">{course.institution_name}</td>
+            <td className="px-6 py-3"><Badge tone="brand">{course.batch_count}</Badge></td>
+            <td className="px-6 py-3"><Badge tone="success">{course.educator_count}</Badge></td>
+            <td className="px-6 py-3">
+              <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => onView(course)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-faint hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                  aria-label="View course"
+                >
+                  <Eye size={14} />
                 </button>
-                <button onClick={() => onEdit(course)}
-                  className="ml-2 px-3 py-1 text-xs bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200">
-                  Edit
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(course)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-faint hover:text-brand-700 hover:bg-brand-50 transition-colors"
+                    aria-label="Edit course"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(course)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-faint hover:text-danger hover:bg-red-50 transition-colors"
+                    aria-label="Delete course"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </td>
+          </motion.tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
