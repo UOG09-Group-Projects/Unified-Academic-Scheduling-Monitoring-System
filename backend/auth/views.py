@@ -82,6 +82,20 @@ def login_view(request):
     if not user.is_active:
         return JsonResponse({'error': 'Your account has been deactivated.'}, status=403)
 
+    if user.role.name.upper() == 'OWNER':
+        institution = user.owned_institutions.order_by('-created_at').first()
+        if institution is None:
+            return JsonResponse({'error': 'No institution found for this account.'}, status=403)
+        if institution.status == 'PENDING':
+            return JsonResponse(
+                {'error': 'Your institution registration is still pending approval.'}, status=403
+            )
+        if institution.status == 'REJECTED':
+            return JsonResponse(
+                {'error': 'Your institution registration was rejected. Contact support for details.'},
+                status=403,
+            )
+
     access_token  = generate_access_token(user)
     refresh_token = generate_refresh_token(user)
 

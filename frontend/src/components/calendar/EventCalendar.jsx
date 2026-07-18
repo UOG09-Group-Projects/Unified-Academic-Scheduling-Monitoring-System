@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, Pencil, Lock, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Pencil, Lock, CalendarDays, AlertTriangle } from 'lucide-react';
 import calendarService from '../../services/calendarService';
 import usePolling from '../../hooks/usePolling';
 import { useToast } from '../ui/Toast';
+import { usePermissions } from '../../auth/PermissionsContext';
+import { findOverlaps } from '../../utils/eventConflicts';
 import Button from '../ui/Button';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import EmptyState from '../ui/EmptyState';
@@ -45,6 +47,7 @@ export default function EventCalendar({ role }) {
   const [deleting, setDeleting] = useState(false);
 
   const toast = useToast();
+  const { user } = usePermissions();
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -74,6 +77,8 @@ export default function EventCalendar({ role }) {
     }
     return map;
   }, [events]);
+
+  const conflictIds = useMemo(() => findOverlaps(events).conflictIds, [events]);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
@@ -204,6 +209,7 @@ export default function EventCalendar({ role }) {
                 const dayEvts = byDate[day] || [];
                 const isToday = day === todayNum;
                 const isSel = day === selDay;
+                const hasConflict = dayEvts.some((e) => conflictIds.has(e.id));
 
                 return (
                   <button
@@ -215,8 +221,15 @@ export default function EventCalendar({ role }) {
                         : isToday
                         ? 'bg-accent-50 text-accent-700 font-bold'
                         : 'text-ink-soft hover:bg-ink/[0.04]'
-                      }`}
+                      }
+                      ${hasConflict ? 'ring-2 ring-danger/60' : ''}`}
                   >
+                    {hasConflict && (
+                      <AlertTriangle
+                        size={10}
+                        className={`absolute top-0.5 right-0.5 ${isSel ? 'text-white' : 'text-danger'}`}
+                      />
+                    )}
                     {day}
                     {dayEvts.length > 0 && (
                       <div className="flex justify-center gap-0.5 mt-0.5">
@@ -266,20 +279,30 @@ export default function EventCalendar({ role }) {
                 />
               ) : (
                 <div className="flex flex-col gap-2">
-                  {selEvents.map((ev) => (
+                  {selEvents.map((ev) => {
+                    const isOthersPersonal = !ev.course && ev.created_by?.id !== user?.id;
+                    const label = isOthersPersonal
+                      ? `Personal — ${ev.created_by?.name}`
+                      : ev.course?.name || 'Personal';
+
+                    return (
                     <button
                       key={ev.id}
                       onClick={() => openEdit(ev)}
-                      className="flex items-center gap-3 p-3 rounded-xl text-left transition-colors hover:bg-ink/[0.03] border border-transparent hover:border-ink/[0.06] group"
+                      className={`flex items-center gap-3 p-3 rounded-xl text-left transition-colors hover:bg-ink/[0.03] border border-transparent hover:border-ink/[0.06] group
+                        ${conflictIds.has(ev.id) ? 'border-danger/30 bg-red-50/40' : ''}`}
                     >
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
                         style={{ backgroundColor: TYPE_COLOR[ev.event_type] || TYPE_COLOR.personal }}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-ink truncate">{ev.title}</p>
+                        <p className="text-sm font-medium text-ink truncate flex items-center gap-1.5">
+                          {ev.title}
+                          {conflictIds.has(ev.id) && <AlertTriangle size={12} className="text-danger shrink-0" />}
+                        </p>
                         <p className="text-xs text-ink-faint truncate">
-                          {ev.course?.name || 'Personal'}
+                          {label}
                           {!ev.all_day && ` · ${new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                         </p>
                       </div>
@@ -289,7 +312,8 @@ export default function EventCalendar({ role }) {
                         <Lock size={12} className="text-ink-faint/50 shrink-0" />
                       )}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </motion.div>

@@ -1,23 +1,19 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { getStoredUser, setStoredUser } from '../services/authStorage';
 
 const PermissionsContext = createContext(null);
 
-function readStoredUser() {
-  try { return JSON.parse(localStorage.getItem('user')) ?? null; }
-  catch { return null; }
-}
-
 export function PermissionsProvider({ children }) {
-  const [user, setUserState] = useState(readStoredUser);
+  const [user, setUserState] = useState(getStoredUser);
 
   const setUser = useCallback((u) => {
     setUserState(u);
-    if (u) localStorage.setItem('user', JSON.stringify(u));
+    if (u) setStoredUser(u);
   }, []);
 
   const refresh = useCallback(() => {
-    if (!localStorage.getItem('user')) return;
+    if (!getStoredUser()) return;
     api.get('/auth/me/')
       .then((res) => setUser(res.data.user))
       .catch(() => {});

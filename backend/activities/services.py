@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 from institutions.models import Activity, Allocation, Student, StudentGuardian, Progress, Enrolment, CourseBatch
 
 
@@ -195,5 +196,35 @@ class ProgressService:
 
         progress, _ = Progress.objects.update_or_create(
             student=student, activity=activity, defaults={'value': value},
+        )
+        return progress
+
+    @staticmethod
+    @transaction.atomic
+    def mark_complete(user, student_id, activity_id, completed):
+        """
+        Student self-report: "I did this task." Independent of `value` (the
+        educator's grade) — never touches it, so a student toggling this
+        can't overwrite a grade they've already been given.
+        """
+        me = _student(user)
+        if not me or me.id != int(student_id):
+            raise ValueError('You can only mark your own tasks complete.')
+
+        try:
+            activity = Activity.objects.select_related('course').get(id=activity_id)
+        except Activity.DoesNotExist:
+            raise ValueError('Activity not found.')
+
+        if activity.course_id not in _student_course_ids(me):
+            raise ValueError('You are not enrolled in this course.')
+
+        completed = bool(completed)
+        progress, _ = Progress.objects.update_or_create(
+            student=me, activity=activity,
+            defaults={
+                'completed': completed,
+                'completed_at': timezone.now() if completed else None,
+            },
         )
         return progress

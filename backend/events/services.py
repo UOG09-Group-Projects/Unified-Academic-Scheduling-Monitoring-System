@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.db.models import Q
-from institutions.models import Event, Allocation
+from institutions.models import Event, Allocation, CourseBatch, Student, Enrolment
 
 
 def get_institution_id(user):
@@ -62,15 +62,42 @@ def _visible_course_ids(user):
     return []
 
 
+def _own_student_ids(user):
+    """
+    All student ids across every course this educator teaches — used to
+    scope which students' personal calendar events an educator may see.
+    Mirrors activities/services.py's _course_students (batch ∪ Enrolment).
+    """
+    course_ids = _own_course_ids(user)
+    if not course_ids:
+        return []
+
+    batch_ids = CourseBatch.objects.filter(course_id__in=course_ids).values_list('batch_id', flat=True)
+    batch_student_ids = set(
+        Student.objects.filter(batch_id__in=batch_ids, is_deleted=False).values_list('id', flat=True)
+    )
+    enrolled_ids = set(
+        Enrolment.objects.filter(course_id__in=course_ids).values_list('student_id', flat=True)
+    )
+    return list(batch_student_ids | enrolled_ids)
+
+
 class EventService:
 
     @staticmethod
     def list_visible_events(user, year=None, month=None):
+        role = user.role.name.upper()
         course_ids = _visible_course_ids(user)
+        query = Q(created_by=user) | Q(course_id__in=course_ids)
 
-        events = Event.objects.filter(
-            Q(created_by=user) | Q(course_id__in=course_ids)
-        ).select_related('course', 'created_by', 'created_by__role').distinct()
+        if role == 'EDUCATOR':
+            student_ids = _own_student_ids(user)
+            if student_ids:
+                query |= Q(event_type='personal', created_by__student_profile__id__in=student_ids)
+
+        events = Event.objects.filter(query).select_related(
+            'course', 'created_by', 'created_by__role'
+        ).distinct()
 
         if year:
             events = events.filter(start__year=year)

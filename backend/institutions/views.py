@@ -26,12 +26,14 @@ class JWTView(APIView):
     permission_map = None
 
     def dispatch(self, request, *args, **kwargs):
-        token = request.COOKIES.get('access_token')
-
-        if not token:
-            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-            if auth_header.startswith('Bearer '):
-                token = auth_header.split(' ', 1)[1]
+        # Header takes priority over the cookie so that multiple tabs of the
+        # same browser (which share one cookie jar) can each act as a
+        # different logged-in user via their own per-tab bearer token.
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
+        else:
+            token = request.COOKIES.get('access_token')
 
         if not token:
             return DjangoJsonResponse(
@@ -87,6 +89,55 @@ class InstitutionPublicListView(APIView):
     def get(self, request):
         institutions = Institution.objects.filter(is_deleted=False).order_by('name')
         return Response([{'id': i.id, 'name': i.name} for i in institutions])
+
+
+class InstitutionRegisterView(APIView):
+    """
+    Public, unauthenticated: a prospective institution owner registers their
+    institution from the landing page. Unlike student signup, this does NOT
+    log the user in — the institution is created with status=PENDING and a
+    super admin must approve it (see InstitutionStatusView) before the owner
+    can log in (enforced in auth.views.login_view).
+    """
+
+    def post(self, request):
+        data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
+        logo = request.FILES.get('logo')
+
+        try:
+            institution = InstitutionService.create_institution(
+                data=data, logo=logo, status='PENDING',
+            )
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'message': 'Registration submitted. A super admin will review it shortly.',
+                'data': InstitutionListSerializer(institution, context={'request': request}).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class InstitutionStatusView(JWTView):
+    """Super admin approves or rejects a pending institution registration."""
+    allowed_roles = ['SUPER_ADMIN']
+
+    def patch(self, request, pk):
+        try:
+            institution = Institution.objects.get(pk=pk, is_deleted=False)
+        except Institution.DoesNotExist:
+            return Response({'error': 'Institution not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        new_status = (request.data.get('status') or '').upper()
+        try:
+            updated = InstitutionService.set_status(institution, new_status)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = InstitutionListSerializer(updated, context={'request': request})
+        return Response({'message': f'Institution {new_status.lower()}.', 'data': serializer.data})
 
 
 class InstitutionListCreateView(JWTView):

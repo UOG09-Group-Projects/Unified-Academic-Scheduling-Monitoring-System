@@ -60,4 +60,4 @@ class InstitutionListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Institution
-        fields = ['id', 'name', 'logo', 'owner', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'logo', 'owner', 'status', 'created_at', 'updated_at']

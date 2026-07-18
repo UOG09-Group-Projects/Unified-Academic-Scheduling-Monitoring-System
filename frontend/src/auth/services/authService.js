@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { setSession, clearSession, getStoredUser } from '../../services/authStorage';
 
 const API = 'http://localhost:8000/api';
 
@@ -10,9 +11,7 @@ const authService = {
       { withCredentials: true }  // browser stores the httpOnly cookie
     );
 
-    localStorage.setItem('user', JSON.stringify(res.data.user));
-    if (res.data.access) localStorage.setItem('access_token', res.data.access);
-    if (res.data.refresh) localStorage.setItem('refresh_token', res.data.refresh);
+    setSession({ user: res.data.user, access: res.data.access, refresh: res.data.refresh });
 
     return res.data.user;
   },
@@ -24,9 +23,7 @@ const authService = {
       { withCredentials: true }  // browser stores the httpOnly cookie
     );
 
-    localStorage.setItem('user', JSON.stringify(res.data.user));
-    if (res.data.access) localStorage.setItem('access_token', res.data.access);
-    if (res.data.refresh) localStorage.setItem('refresh_token', res.data.refresh);
+    setSession({ user: res.data.user, access: res.data.access, refresh: res.data.refresh });
 
     return res.data.user;
   },
@@ -44,19 +41,14 @@ const authService = {
         { withCredentials: true }  // server deletes the cookie
       );
     } finally {
-      localStorage.removeItem('user');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      clearSession();
       window.location.href = '/login';
     }
   },
 
-  getUser:    () => {
-    const u = localStorage.getItem('user');
-    return u ? JSON.parse(u) : null;
-  },
+  getUser:    () => getStoredUser(),
 
-  isLoggedIn: () => !!localStorage.getItem('user'),
+  isLoggedIn: () => !!getStoredUser(),
 };
 
 export default authService;

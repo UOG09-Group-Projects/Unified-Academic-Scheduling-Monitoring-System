@@ -24,10 +24,20 @@ class ManagerCreateSerializer(serializers.ModelSerializer):
         return value
 
 
+class ManagerUserSerializer(serializers.Serializer):
+    id    = serializers.IntegerField()
+    email = serializers.EmailField()
+
+
+class ManagerInstitutionSerializer(serializers.Serializer):
+    id   = serializers.IntegerField()
+    name = serializers.CharField()
+
+
 class ManagerListSerializer(serializers.ModelSerializer):
-    email       = serializers.CharField(source='user.email', read_only=True)
-    institution = serializers.CharField(source='institution.name', read_only=True)
+    user        = ManagerUserSerializer(read_only=True)
+    institution = ManagerInstitutionSerializer(read_only=True)
 
     class Meta:
         model  = Manager
-        fields = ['id', 'name', 'email', 'institution', 'created_at']
+        fields = ['id', 'name', 'user', 'institution', 'created_at']

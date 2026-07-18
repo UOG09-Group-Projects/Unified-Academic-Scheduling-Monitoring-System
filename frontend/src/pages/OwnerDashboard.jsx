@@ -10,7 +10,9 @@ import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import BarChartCard from "../components/charts/BarChartCard";
+import DonutChartCard from "../components/charts/DonutChartCard";
 import { SkeletonRows } from "../components/ui/Skeleton";
+import ErrorState from "../components/ui/ErrorState";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -52,7 +54,13 @@ export default function OwnerDashboard() {
       </div>
     );
   }
-  if (error) return <div className="p-6 text-danger text-sm">{error}</div>;
+  if (error) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <ErrorState message={error} />
+      </div>
+    );
+  }
 
   const totalPermissions = roles.reduce((sum, r) => sum + r.permissions.length, 0);
   const configuredRoles = roles.filter((r) => r.permissions.length > 0).length;
@@ -62,6 +70,11 @@ export default function OwnerDashboard() {
     name: r.name.charAt(0).toUpperCase() + r.name.slice(1),
     value: r.permissions.length,
   }));
+
+  const rolesCoverageChart = [
+    { name: 'Configured', value: configuredRoles, color: '#00A0F5' },
+    { name: 'Not set up', value: roles.length - configuredRoles, color: '#CBD5E1' },
+  ];
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -85,10 +98,13 @@ export default function OwnerDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4"
+        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
       >
         <BarChartCard title="Permissions per role" icon={ShieldCheck} data={permissionsPerRole} color="#00A0F5" />
+        <DonutChartCard title="Roles configured" data={rolesCoverageChart} />
+      </motion.div>
 
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2}>
         <Card padding="p-0" className="overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-5 py-4 border-b border-ink/[0.06]">
             <h2 className="text-sm font-semibold text-ink">Managers</h2>

@@ -118,11 +118,14 @@ def jwt_required(roles: list[str] | None = None):
         def wrapper(request, *args, **kwargs):
             from institutions.models import User
 
-            token = request.COOKIES.get('access_token')
-            if not token:
-                auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-                if auth_header.startswith('Bearer '):
-                    token = auth_header.split(' ', 1)[1]
+            # Header takes priority over the cookie so that multiple tabs of
+            # the same browser (sharing one cookie jar) can each act as a
+            # different logged-in user via their own per-tab bearer token.
+            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ', 1)[1]
+            else:
+                token = request.COOKIES.get('access_token')
 
             if not token:
                 return JsonResponse({'error': 'Authentication required'}, status=401)

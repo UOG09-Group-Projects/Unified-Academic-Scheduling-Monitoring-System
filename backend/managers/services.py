@@ -35,6 +35,8 @@ class ManagerService:
             is_active=True,
             is_email_verified=True,
         )
+        user.set_password(password)
+        user.save()
 
         # Create manager profile
         manager = Manager.objects.create(

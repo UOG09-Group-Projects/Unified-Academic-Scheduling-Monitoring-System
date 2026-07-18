@@ -5,14 +5,17 @@ import {
   LayoutDashboard, Building2, BookOpen, Users,
   GraduationCap, Layers3, Settings, User, LogOut,
   FileText, CreditCard, TrendingUp, Menu, X, ShieldCheck,
+  HelpCircle, MessageSquare,
 } from 'lucide-react';
 import logo from '../assets/logoll.png';
+import { getStoredUser, clearSession } from '../services/authStorage';
 
 const NAV_ITEMS = {
   SUPER_ADMIN: [
     { label: 'Dashboard',     path: '/dashboard/super-admin' },
     { label: 'Institutions',  path: '/institutions' },
     { label: 'Subscriptions', path: '/subscriptions' },
+    { label: 'Messages',      path: '/superadmin/messages' },
     { label: 'Settings',      path: '/superadmin/settings' },
     { label: 'Profile',       path: '/superadmin/profile' },
   ],
@@ -20,6 +23,7 @@ const NAV_ITEMS = {
     { label: 'Dashboard', path: '/dashboard/owner' },
     { label: 'Managers',  path: '/managers' },
     { label: 'Roles',     path: '/roles' },
+    { label: 'Help',      path: '/help' },
     { label: 'Profile',   path: '/profile' },
   ],
   MANAGER: [
@@ -28,18 +32,22 @@ const NAV_ITEMS = {
     { label: 'Educators', path: '/educators' },
     { label: 'Students',  path: '/students' },
     { label: 'Batches',   path: '/batches' },
+    { label: 'Help',      path: '/help' },
     { label: 'Profile',   path: '/profile' },
   ],
   EDUCATOR: [
     { label: 'Dashboard', path: '/dashboard/educator' },
+    { label: 'Help',      path: '/help' },
     { label: 'Profile',   path: '/profile' },
   ],
   STUDENT: [
     { label: 'Dashboard', path: '/dashboard/student' },
+    { label: 'Help',      path: '/help' },
     { label: 'Profile',   path: '/profile' },
   ],
   PARENT: [
     { label: 'Dashboard', path: '/dashboard/parent' },
+    { label: 'Help',      path: '/help' },
     { label: 'Profile',   path: '/profile' },
   ],
 };
@@ -69,17 +77,16 @@ const ICONS = {
   Schedule:      LayoutDashboard,
   Managers:      Users,
   Roles:         ShieldCheck,
+  Help:          HelpCircle,
+  Messages:      MessageSquare,
 };
 
-const SECONDARY = new Set(['Profile', 'Settings']);
+const SECONDARY = new Set(['Profile', 'Settings', 'Help']);
 
 function SidebarContent({ onClose }) {
   const navigate = useNavigate();
 
-  const user = (() => {
-    try { return JSON.parse(localStorage.getItem('user')) ?? {}; }
-    catch { return {}; }
-  })();
+  const user = getStoredUser() ?? {};
 
   const role     = user?.role ?? 'MANAGER';
   const items    = NAV_ITEMS[role] ?? NAV_ITEMS.MANAGER;
@@ -89,8 +96,7 @@ function SidebarContent({ onClose }) {
   const secondaryItems = items.filter((i) => SECONDARY.has(i.label));
 
   function handleLogout() {
-    localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
+    clearSession();
     navigate('/login');
   }
 
