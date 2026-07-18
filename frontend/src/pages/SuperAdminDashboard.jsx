@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, GraduationCap, BookOpen, Activity } from "lucide-react";
+import { Building2, Users, GraduationCap, BookOpen, Activity, MessageSquareWarning } from "lucide-react";
 import dashboardService from "../services/dashboardService";
 import StatCard from "../components/StatCard";
 import Card from "../components/ui/Card";
@@ -9,9 +9,11 @@ import PageHeader from "../components/ui/PageHeader";
 import EmptyState from "../components/ui/EmptyState";
 import BarChartCard from "../components/charts/BarChartCard";
 import DonutChartCard from "../components/charts/DonutChartCard";
+import ActivityFeed from "../components/ActivityFeed";
 import { SkeletonRows } from "../components/ui/Skeleton";
+import ErrorState from "../components/ui/ErrorState";
 
-const TONES = ['ocean', 'success', 'violet', 'warning', 'danger'];
+const TONES = ['ocean', 'success', 'violet', 'warning', 'danger', 'accent'];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -49,9 +51,15 @@ export default function SuperAdminDashboard() {
       </div>
     );
   }
-  if (error) return <div className="p-6 text-danger text-sm">{error}</div>;
+  if (error) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <ErrorState message={error} />
+      </div>
+    );
+  }
 
-  const { summary, institutions } = data;
+  const { summary, institutions, recent_activity } = data;
 
   const activeCount = (institutions ?? []).filter((i) => i.is_active !== false).length;
   const inactiveCount = (institutions ?? []).length - activeCount;
@@ -72,6 +80,7 @@ export default function SuperAdminDashboard() {
     { label: 'Educators',    value: summary.total_educators,    icon: GraduationCap },
     { label: 'Courses',      value: summary.total_courses,      icon: BookOpen },
     { label: 'Active users', value: summary.total_users,        icon: Activity },
+    { label: 'Open complaints', value: summary.total_complaints, icon: MessageSquareWarning },
   ];
 
   return (
@@ -80,7 +89,7 @@ export default function SuperAdminDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8"
       >
         {stats.map((s, i) => (
           <StatCard key={s.label} {...s} tone={TONES[i]} />
@@ -140,6 +149,16 @@ export default function SuperAdminDashboard() {
               ))}
             </>
           )}
+        </Card>
+      </motion.div>
+
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-8">
+        <Card>
+          <h2 className="text-sm font-semibold text-ink mb-4 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-ink-faint" />
+            Recent activity
+          </h2>
+          <ActivityFeed activities={recent_activity} />
         </Card>
       </motion.div>
     </div>

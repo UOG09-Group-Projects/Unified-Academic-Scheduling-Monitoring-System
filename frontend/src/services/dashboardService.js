@@ -1,9 +1,18 @@
 // src/services/dashboardService.js
 import axios from 'axios';
+import { getAccessToken, clearSession } from './authStorage';
 
 const client = axios.create({
   baseURL: 'http://localhost:8000/api',
   withCredentials: true, // sends httpOnly cookie automatically on every request
+});
+
+// Attach the per-tab bearer token so this client also works correctly when
+// multiple tabs of the same browser are logged in as different users.
+client.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
 });
 
 // Session expired or invalid — clear local state and send the user back to login.
@@ -11,9 +20,7 @@ client.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401 && window.location.pathname !== '/login') {
-      localStorage.removeItem('user');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      clearSession();
       window.location.href = '/login';
     }
     return Promise.reject(error);

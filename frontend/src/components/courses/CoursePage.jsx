@@ -14,9 +14,10 @@ import StatCard from '../StatCard';
 import { SkeletonRows } from '../ui/Skeleton';
 import { useToast } from '../ui/Toast';
 import { usePermissions } from '../../auth/PermissionsContext';
+import { getStoredUser } from '../../services/authStorage';
 
 export default function CoursePage() {
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getStoredUser();
   const { can } = usePermissions();
   const toast = useToast();
 

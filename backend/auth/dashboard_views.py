@@ -12,6 +12,7 @@ from institutions.models import (
     Student, Educator,
     Batch, Guardian, StudentGuardian,
     Enrolment, Activity, Progress,
+    Complaint,
 )
 
 
@@ -24,46 +25,49 @@ from institutions.models import (
 @require_http_methods(['GET'])
 @jwt_required(roles=['MANAGER'])
 def manager_dashboard(request):
-    total_institutions = Institution.objects.filter(is_deleted=False).count()
-    total_courses      = Course.objects.filter(is_deleted=False).count()
-    total_educators    = Educator.objects.count()
-    total_batches      = Batch.objects.count()
-    total_students     = Student.objects.filter(is_deleted=False).count()
+    # A manager only ever oversees the one institution they're linked to
+    # (see institutions.jwt_utils._resolve_institution_id) — every count and
+    # chart below is scoped to it so a manager never sees another
+    # institution's data.
+    institution_id = request.current_user.institution_id
+    if not institution_id:
+        return JsonResponse({'error': 'No institution found for this manager.'}, status=404)
 
-    courses_per_institution = list(
-        Course.objects
-        .filter(is_deleted=False)
-        .values('institution__name')
-        .annotate(course_count=Count('id'))
-        .order_by('-course_count')
+    institution = Institution.objects.filter(id=institution_id, is_deleted=False).first()
+    if not institution:
+        return JsonResponse({'error': 'No institution found for this manager.'}, status=404)
+
+    total_courses   = Course.objects.filter(institution_id=institution_id, is_deleted=False).count()
+    total_educators = Educator.objects.filter(institution_id=institution_id).count()
+    total_batches   = Batch.objects.filter(institution_id=institution_id).count()
+    total_students  = Student.objects.filter(institution_id=institution_id, is_deleted=False).count()
+
+    students_per_batch = list(
+        Student.objects
+        .filter(institution_id=institution_id, is_deleted=False, batch__isnull=False)
+        .values('batch__name')
+        .annotate(student_count=Count('id'))
+        .order_by('-student_count')
     )
 
     educators_per_course = list(
         Allocation.objects
+        .filter(course__institution_id=institution_id)
         .values('course__name')
         .annotate(educator_count=Count('educator'))
         .order_by('-educator_count')[:10]
     )
 
-    recent_activity = list(
-        ActivityLog.objects.values(
-            'id', 'module', 'action', 'description', 'timestamp'
-        )[:10]
-    )
-    for a in recent_activity:
-        a['timestamp'] = a['timestamp'].strftime('%d %b %Y, %I:%M %p')
-
     return JsonResponse({
         'summary': {
-            'total_institutions': total_institutions,
-            'total_courses':      total_courses,
-            'total_educators':    total_educators,
-            'total_batches':      total_batches,
-            'total_students':     total_students,
+            'institution_name': institution.name,
+            'total_courses':    total_courses,
+            'total_educators':  total_educators,
+            'total_batches':    total_batches,
+            'total_students':   total_students,
         },
-        'courses_per_institution': courses_per_institution,
-        'educators_per_course':    educators_per_course,
-        'recent_activity':         recent_activity,
+        'students_per_batch':   students_per_batch,
+        'educators_per_course': educators_per_course,
     })
 
 
@@ -82,6 +86,7 @@ def super_admin_dashboard(request):
     total_batches      = Batch.objects.count()
     total_students     = Student.objects.filter(is_deleted=False).count()
     total_users        = total_educators + total_students
+    total_complaints   = Complaint.objects.filter(status='OPEN').count()
 
     institutions = Institution.objects.filter(is_deleted=False).annotate(
         course_count=Count('courses')
@@ -114,6 +119,7 @@ def super_admin_dashboard(request):
             'total_batches':      total_batches,
             'total_students':     total_students,
             'total_users':        total_users,
+            'total_complaints':   total_complaints,
         },
         'institutions':    institutions_data,
         'recent_activity': recent_activity,
@@ -220,6 +226,15 @@ def student_dashboard(request):
         for e in Enrolment.objects.filter(student=student).select_related('course').order_by('-enrolled_date')
     ]
 
+    # Task-completion aggregate — same course scope (batch ∪ self-enrolled)
+    # used everywhere else for this student.
+    course_ids = set(c['id'] for c in courses)
+    course_ids.update(Enrolment.objects.filter(student=student).values_list('course_id', flat=True))
+    total_tasks = Activity.objects.filter(course_id__in=course_ids).count()
+    completed_tasks = Progress.objects.filter(
+        student=student, completed=True, activity__course_id__in=course_ids
+    ).count()
+
     return JsonResponse({
         'student': {
             'id':              student.id,
@@ -233,6 +248,8 @@ def student_dashboard(request):
             'total_courses':     len(courses),
             'total_educators':   sum(len(c['educators']) for c in courses),
             'total_enrollments': len(enrollments),
+            'total_tasks':       total_tasks,
+            'completed_tasks':   completed_tasks,
         },
         'courses':     courses,
         'enrollments': enrollments,

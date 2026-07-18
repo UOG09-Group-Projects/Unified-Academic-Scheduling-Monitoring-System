@@ -6,7 +6,7 @@ import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import { BookOpen } from 'lucide-react';
 
-export default function StudentCourseList({ courses, progressRecords }) {
+export default function StudentCourseList({ courses, progressRecords, studentId, onProgressChange }) {
   const [expanded, setExpanded] = useState(null);
 
   const toggleEducator = (courseId, educator) => {
@@ -63,7 +63,13 @@ export default function StudentCourseList({ courses, progressRecords }) {
             )}
           </AnimatePresence>
 
-          <CourseActivityProgress courseId={course.id} progressRecords={progressRecords} />
+          <CourseActivityProgress
+            courseId={course.id}
+            studentId={studentId}
+            progressRecords={progressRecords}
+            canComplete
+            onChange={onProgressChange}
+          />
         </Card>
       ))}
     </div>

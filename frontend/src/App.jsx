@@ -8,6 +8,7 @@ import StudentPage from './pages/StudentPage';
 
 import LoginPage from './pages/LoginPage';
 import StudentSignupPage from './pages/StudentSignupPage';
+import RegisterInstitutionPage from './pages/RegisterInstitutionPage';
 import ForgotPasswordPage from './auth/ForgotPasswordPage';
 import ResetPasswordPage from './auth/ResetPasswordPage';
 import VerifyEmailPage from './auth/VerifyEmailPage';
@@ -27,6 +28,8 @@ import Home from './pages/Home';
 import RolesPermissions from './pages/RolesPermissions';
 import UserProfile from './pages/UserProfile';
 import Subscriptions from './pages/superadmin/Subscriptions';
+import HelpPage from './pages/HelpPage';
+import Messages from './pages/superadmin/Messages';
 
 
 
@@ -39,6 +42,7 @@ function App() {
         <Route path="/" element={<Home />} />
          <Route path="/login" element={<LoginPage />} />
         <Route path="/signup/student" element={<StudentSignupPage />} />
+        <Route path="/register-institution" element={<RegisterInstitutionPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -125,6 +129,10 @@ function App() {
           <Route path="/roles" element={<RolesPermissions />} />
 
           <Route path="/subscriptions" element={<Subscriptions />} />
+
+          <Route path="/help" element={<HelpPage />} />
+
+          <Route path="/superadmin/messages" element={<Messages />} />
 
         </Route>
 

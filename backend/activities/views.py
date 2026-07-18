@@ -97,7 +97,9 @@ class StudentProgressView(JWTView):
         return Response([
             {
                 'id': p.id,
-                'value': float(p.value),
+                'value': float(p.value) if p.value is not None else None,
+                'completed': p.completed,
+                'completed_at': p.completed_at,
                 'activity': {
                     'id': p.activity.id,
                     'name': p.activity.name,
@@ -109,19 +111,34 @@ class StudentProgressView(JWTView):
         ])
 
     def post(self, request):
-        # No role currently holds a coherent "set progress" grant in the
-        # permissions table (STUDENT has edit_progress, which would let
-        # students grade themselves) — restricted to EDUCATOR, who also
-        # validates course ownership in the service layer.
-        if request.current_user.role.name.upper() != 'EDUCATOR':
-            return Response({'error': 'Permission denied.'}, status=403)
-        try:
-            progress = ProgressService.set_progress(
-                request.current_user,
-                request.data.get('student_id'),
-                request.data.get('activity_id'),
-                request.data.get('value'),
-            )
-            return Response({'message': 'Progress updated.', 'data': {'id': progress.id, 'value': float(progress.value)}})
-        except ValueError as e:
-            return Response({'error': str(e)}, status=400)
+        role = request.current_user.role.name.upper()
+
+        if role == 'EDUCATOR':
+            try:
+                progress = ProgressService.set_progress(
+                    request.current_user,
+                    request.data.get('student_id'),
+                    request.data.get('activity_id'),
+                    request.data.get('value'),
+                )
+                return Response({'message': 'Progress updated.', 'data': {'id': progress.id, 'value': float(progress.value)}})
+            except ValueError as e:
+                return Response({'error': str(e)}, status=400)
+
+        if role == 'STUDENT':
+            # Self-report only — never touches the educator's `value` grade.
+            try:
+                progress = ProgressService.mark_complete(
+                    request.current_user,
+                    request.data.get('student_id'),
+                    request.data.get('activity_id'),
+                    request.data.get('completed'),
+                )
+                return Response({
+                    'message': 'Task updated.',
+                    'data': {'id': progress.id, 'completed': progress.completed, 'completed_at': progress.completed_at},
+                })
+            except ValueError as e:
+                return Response({'error': str(e)}, status=400)
+
+        return Response({'error': 'Permission denied.'}, status=403)

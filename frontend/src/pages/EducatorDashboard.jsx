@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { BookOpen, GraduationCap, Layers3 } from 'lucide-react';
 import StatCard from "../components/StatCard";
 import EventCalendar from "../components/calendar/EventCalendar";
+import WorkloadSummary from "../components/calendar/WorkloadSummary";
 import PageHeader from '../components/ui/PageHeader';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -10,6 +11,7 @@ import EmptyState from '../components/ui/EmptyState';
 import BarChartCard from '../components/charts/BarChartCard';
 import EducatorCourseActivities from '../components/activities/EducatorCourseActivities';
 import { SkeletonRows } from '../components/ui/Skeleton';
+import ErrorState from '../components/ui/ErrorState';
 import dashboardService from "../services/dashboardService";
 
 const fadeUp = {
@@ -48,7 +50,13 @@ export default function EducatorDashboard() {
       </div>
     );
   }
-  if (error) return <div className="p-6 text-danger text-sm">{error}</div>;
+  if (error) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <ErrorState message={error} />
+      </div>
+    );
+  }
 
   const coursesWithBatches = data.courses.filter((c) => c.batch_count > 0).length;
   const coverage = data.summary.total_courses > 0
@@ -112,7 +120,12 @@ export default function EducatorDashboard() {
         <BarChartCard title="Batches per course" data={batchesPerCourse} color="#00A0F5" height={260} />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2}>
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="mb-6">
+        <h2 className="text-sm font-semibold text-ink mb-3">Workload</h2>
+        <WorkloadSummary />
+      </motion.div>
+
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3}>
         <h2 className="text-sm font-semibold text-ink mb-3">Schedule</h2>
         <EventCalendar role="EDUCATOR" />
       </motion.div>

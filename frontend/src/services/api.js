@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getAccessToken, clearSession } from "./authStorage";
 
 const api = axios.create({
   baseURL: "http://localhost:8000/api",
@@ -7,7 +8,7 @@ const api = axios.create({
 
 // Attach token automatically to every request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -22,9 +23,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && window.location.pathname !== '/login') {
-      localStorage.removeItem('user');
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      clearSession();
       window.location.href = '/login';
     }
     return Promise.reject(error);

@@ -73,6 +73,9 @@ export default function Navbar() {
       </ul>
 
       <div className="hidden md:flex gap-3">
+        <Button variant="outline" size="sm" onClick={() => navigate("/register-institution")}>
+          Register institution
+        </Button>
         <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
           Sign in
         </Button>
@@ -104,13 +107,18 @@ export default function Navbar() {
               {label}
             </a>
           ))}
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate("/login")}>
-              Sign in
+          <div className="flex flex-col gap-3 pt-2">
+            <Button variant="outline" size="sm" onClick={() => navigate("/register-institution")}>
+              Register institution
             </Button>
-            <Button variant="ocean" size="sm" className="flex-1" onClick={() => navigate("/login")}>
-              Get started
-            </Button>
+            <div className="flex gap-3">
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate("/login")}>
+                Sign in
+              </Button>
+              <Button variant="ocean" size="sm" className="flex-1" onClick={() => navigate("/login")}>
+                Get started
+              </Button>
+            </div>
           </div>
         </motion.div>
       )}

@@ -107,6 +107,12 @@ class User(models.Model):
 # ---------------------------------------------------------------------------
 
 class Institution(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING',  'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+
     name       = models.CharField(max_length=255)
     logo       = models.ImageField(upload_to='institution_logos/', null=True, blank=True)
     owner      = models.ForeignKey(
@@ -114,6 +120,10 @@ class Institution(models.Model):
         on_delete=models.CASCADE,
         related_name='owned_institutions'
     )
+    # Self-registered institutions start PENDING until a super admin
+    # approves them; institutions created by an already-authenticated
+    # SUPER_ADMIN/OWNER/MANAGER default to APPROVED (no review needed).
+    status     = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -356,13 +366,19 @@ class Activity(models.Model):
 
 
 class Progress(models.Model):
-    student  = models.ForeignKey(
+    student      = models.ForeignKey(
         Student, on_delete=models.CASCADE, related_name='progress_records'
     )
-    activity = models.ForeignKey(
+    activity     = models.ForeignKey(
         Activity, on_delete=models.CASCADE, related_name='progress_records'
     )
-    value    = models.DecimalField(max_digits=3, decimal_places=2)
+    # Educator-assigned grade — nullable so a row can exist purely from a
+    # student's own completed/completed_at self-report, before any grading.
+    value        = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    # Student-controlled "I did this" flag — independent of the educator's
+    # grade above; toggling it never touches `value`.
+    completed    = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table        = 'progress'
@@ -445,3 +461,49 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return f"[{self.module}] {self.action} — {self.description}"
+
+
+# ---------------------------------------------------------------------------
+# Complaint (Help / Complaints inbox for the super admin)
+# ---------------------------------------------------------------------------
+
+class Complaint(models.Model):
+    """
+    A help request or complaint filed by any non-super-admin user, answered
+    by a super admin. Replies are in-app only (no outbound email).
+    """
+    TYPE_CHOICES = [
+        ('COMPLAINT', 'Complaint'),
+        ('HELP',      'Help Request'),
+    ]
+    STATUS_CHOICES = [
+        ('OPEN',        'Open'),
+        ('IN_PROGRESS', 'In Progress'),
+        ('RESOLVED',    'Resolved'),
+    ]
+
+    type    = models.CharField(max_length=20, choices=TYPE_CHOICES, default='HELP')
+    subject = models.CharField(max_length=150)
+    message = models.TextField()
+    status  = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
+
+    reply      = models.TextField(blank=True)
+    replied_at = models.DateTimeField(null=True, blank=True)
+    replied_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='complaint_replies',
+    )
+
+    submitted_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='complaints'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'complaints'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.type}] {self.subject}"

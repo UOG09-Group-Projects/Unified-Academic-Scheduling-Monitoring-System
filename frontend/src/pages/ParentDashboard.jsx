@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, User, BookOpen, AlertCircle, ClipboardList, Building2, FileText } from 'lucide-react';
+import { Users, User, BookOpen, ClipboardList, Building2, FileText } from 'lucide-react';
 
 import StatCard from "../components/StatCard";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
+import ErrorState from "../components/ui/ErrorState";
 import PageHeader from "../components/ui/PageHeader";
+import Tabs from "../components/ui/Tabs";
 import { SkeletonRows } from "../components/ui/Skeleton";
+import BarChartCard from "../components/charts/BarChartCard";
 import CourseActivityProgress from "../components/activities/CourseActivityProgress";
 import MonthlyReportModal from "../components/parent/MonthlyReportModal";
 import dashboardService from "../services/dashboardService";
@@ -67,15 +70,16 @@ export default function ParentDashboard() {
 
   if (error) {
     return (
-      <div className="p-6 flex items-center gap-2 text-danger text-sm">
-        <AlertCircle className="w-4 h-4" />
-        {error}
+      <div className="p-6 max-w-5xl mx-auto">
+        <ErrorState message={error} />
       </div>
     );
   }
 
   const { guardian, children = [], total_children } = data ?? {};
   const child = children[activeChild] ?? null;
+
+  const coursesPerChild = children.map((c) => ({ name: c.name, value: c.total_courses ?? 0 }));
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -92,21 +96,19 @@ export default function ParentDashboard() {
       ) : (
         <div className="space-y-6">
           {children.length > 1 && (
-            <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1} className="flex flex-wrap gap-2">
-              {children.map((c, i) => {
-                const active = activeChild === i;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setActiveChild(i)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors
-                      ${active ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-ink-soft border-ink/10 hover:bg-ink/[0.03]'}`}
-                  >
-                    <User className="w-4 h-4" />
-                    {c.name}
-                  </button>
-                );
-              })}
+            <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1}>
+              <Tabs
+                layoutId="parent-child-tabs"
+                value={activeChild}
+                onChange={setActiveChild}
+                items={children.map((c, i) => ({ value: i, label: c.name, icon: User }))}
+              />
+            </motion.div>
+          )}
+
+          {children.length > 1 && (
+            <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1.5}>
+              <BarChartCard title="Courses per child" icon={BookOpen} data={coursesPerChild} color="#00A0F5" />
             </motion.div>
           )}
 

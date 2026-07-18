@@ -8,11 +8,13 @@ import StudentCourseList from '../components/student/StudentCourseList';
 import EnrollmentList from '../components/student/EnrollmentList';
 import GuardianList from '../components/student/GuardianList';
 import EventCalendar from '../components/calendar/EventCalendar';
+import WorkloadSummary from '../components/calendar/WorkloadSummary';
 import PageHeader from '../components/ui/PageHeader';
 import ProgressBar from '../components/ui/ProgressBar';
 import Card from '../components/ui/Card';
 import BarChartCard from '../components/charts/BarChartCard';
 import { SkeletonRows } from '../components/ui/Skeleton';
+import ErrorState from '../components/ui/ErrorState';
 import dashboardService from '../services/dashboardService';
 import progressService from '../services/progressService';
 import studentService from '../services/studentService';
@@ -64,12 +66,14 @@ export default function StudentDashboard() {
     loadGuardians();
   }, []);
 
-  useEffect(() => {
+  const loadProgress = () => {
     if (!data?.student?.id) return;
     progressService.listForStudent(data.student.id)
       .then(setProgressRecords)
       .catch(() => {});
-  }, [data?.student?.id]);
+  };
+
+  useEffect(loadProgress, [data?.student?.id]);
 
   if (loading) {
     return (
@@ -80,7 +84,11 @@ export default function StudentDashboard() {
   }
 
   if (error) {
-    return <div className="p-6 text-danger text-sm">{error}</div>;
+    return (
+      <div className="p-6 max-w-5xl mx-auto">
+        <ErrorState message={error} onRetry={loadDashboard} />
+      </div>
+    );
   }
 
   const { student, summary, courses, enrollments } = data;
@@ -113,9 +121,9 @@ export default function StudentDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8"
       >
-        <StudentStatCards summary={summary} />
+        <StudentStatCards summary={summary} progressRecords={progressRecords} />
       </motion.div>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 mb-6 items-start">
@@ -124,7 +132,12 @@ export default function StudentDashboard() {
             <h2 className="text-sm font-semibold text-ink">Courses</h2>
             <span className="text-xs text-ink-faint">{courses?.length ?? 0} total</span>
           </div>
-          <StudentCourseList courses={courses} progressRecords={progressRecords} />
+          <StudentCourseList
+            courses={courses}
+            progressRecords={progressRecords}
+            studentId={student?.id}
+            onProgressChange={loadProgress}
+          />
         </div>
 
         <BarChartCard title="Educators per course" data={educatorsPerCourse} color="#00A0F5" height={260} />
@@ -138,7 +151,12 @@ export default function StudentDashboard() {
         <GuardianList guardians={guardians} onChange={loadGuardians} />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5}>
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5} className="mb-6">
+        <h2 className="text-sm font-semibold text-ink mb-3">Workload</h2>
+        <WorkloadSummary />
+      </motion.div>
+
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={6}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink">Schedule</h2>
         </div>

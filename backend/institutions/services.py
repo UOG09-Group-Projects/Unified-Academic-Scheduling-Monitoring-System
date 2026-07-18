@@ -8,7 +8,7 @@ class InstitutionService:
 
     @staticmethod
     @transaction.atomic
-    def create_institution(data: dict, logo=None) -> Institution:
+    def create_institution(data: dict, logo=None, status: str = 'APPROVED') -> Institution:
 
         serializer = InstitutionCreateSerializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -36,7 +36,8 @@ class InstitutionService:
         institution = Institution.objects.create(
             name=validated['name'],
             owner=user,
-            logo=logo
+            logo=logo,
+            status=status,
         )
 
         ActivityLog.objects.create(
@@ -45,6 +46,22 @@ class InstitutionService:
             description=f"Institution '{institution.name}' was created."
         )
 
+        return institution
+
+    @staticmethod
+    @transaction.atomic
+    def set_status(institution: Institution, status: str) -> Institution:
+        valid_statuses = {choice[0] for choice in Institution.STATUS_CHOICES}
+        if status not in valid_statuses:
+            raise ValueError("Invalid status.")
+
+        institution.status = status
+        institution.save()
+
+        ActivityLog.objects.create(
+            module='INSTITUTION', action='UPDATE',
+            description=f"Institution '{institution.name}' was {status.lower()}."
+        )
         return institution
 
     @staticmethod

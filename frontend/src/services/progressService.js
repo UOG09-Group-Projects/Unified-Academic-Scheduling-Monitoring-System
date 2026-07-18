@@ -6,6 +6,9 @@ const progressService = {
 
   setProgress: (studentId, activityId, value) =>
     api.post('/progress/', { student_id: studentId, activity_id: activityId, value }).then((r) => r.data),
+
+  markComplete: (studentId, activityId, completed) =>
+    api.post('/progress/', { student_id: studentId, activity_id: activityId, completed }).then((r) => r.data),
 };
 
 export default progressService;

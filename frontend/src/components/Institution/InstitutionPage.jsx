@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Building2, UserCircle2 } from 'lucide-react';
 import InstitutionForm from './InstitutionForm';
 import InstitutionTable from './InstitutionTable';
-import { getAllInstitutions, deleteInstitution } from '../../services/institutionService';
+import { getAllInstitutions, deleteInstitution, setInstitutionStatus } from '../../services/institutionService';
 import PageHeader from '../ui/PageHeader';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -18,6 +18,7 @@ const CAN_MANAGE_ROLES = ['SUPER_ADMIN', 'OWNER', 'MANAGER'];
 const InstitutionPage = () => {
   const { user } = usePermissions();
   const canManage = CAN_MANAGE_ROLES.includes(user?.role?.toUpperCase?.());
+  const isSuperAdmin = user?.role?.toUpperCase?.() === 'SUPER_ADMIN';
   const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -67,6 +68,26 @@ const InstitutionPage = () => {
     closeForm();
   };
 
+  const handleApprove = async (inst) => {
+    try {
+      await setInstitutionStatus(inst.id, 'APPROVED');
+      toast.success(`${inst.name} approved.`);
+      fetchInstitutions();
+    } catch (err) {
+      toast.error('Approve failed: ' + err.message);
+    }
+  };
+
+  const handleReject = async (inst) => {
+    try {
+      await setInstitutionStatus(inst.id, 'REJECTED');
+      toast.success(`${inst.name} rejected.`);
+      fetchInstitutions();
+    } catch (err) {
+      toast.error('Reject failed: ' + err.message);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -112,6 +133,8 @@ const InstitutionPage = () => {
               institutions={institutions}
               onEdit={canManage ? openEdit : null}
               onDelete={canManage ? (inst) => setDeleteTarget(inst) : null}
+              onApprove={isSuperAdmin ? handleApprove : null}
+              onReject={isSuperAdmin ? handleReject : null}
             />
           )}
         </Card>
