@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 import uuid
 import hashlib
 
@@ -315,21 +316,30 @@ class Allocation(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Enrolment, Activity, Progress
+# Enrollment, Activity, Progress
 # ---------------------------------------------------------------------------
 
-class Enrolment(models.Model):
-    student       = models.ForeignKey(
-        Student, on_delete=models.CASCADE, related_name='enrolments'
+class Enrollment(models.Model):
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE
     )
-    course        = models.ForeignKey(
-        Course, on_delete=models.CASCADE, related_name='enrolments'
+
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE
     )
-    enrolled_date = models.DateField(auto_now_add=True)
+
+    created_at = models.DateTimeField(
+        default=timezone.now
+    )
 
     class Meta:
-        db_table        = 'enrollments'   
+        db_table = 'enrollments'
         unique_together = ('student', 'course')
+
+    def __str__(self):
+        return f"{self.student} - {self.course}"
 
 
 class Activity(models.Model):

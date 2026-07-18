@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, BookOpen, Users,
   GraduationCap, Layers3, Settings, User, LogOut,
-  FileText, CreditCard, TrendingUp, Menu, X,
+  FileText, CreditCard, TrendingUp, Menu, X, UserPlus,
 } from 'lucide-react';
 import logo from '../assets/logoll.png';
 
@@ -74,6 +74,7 @@ const ICONS = {
   Subscriptions: CreditCard,
   Progress:      TrendingUp,
   Schedule:      LayoutDashboard,
+  Enrollments:   UserPlus,
 };
 
 // Items that appear below a divider
@@ -95,6 +96,7 @@ function SidebarContent({ onClose }) {
     { label: 'Educators', path: '/educators' },
     //{ label: 'Students',  path: '/students' },
     { label: 'Batches',   path: '/batches' },
+    { label: 'Enrollments', path: '/enrollments' },
     { label: 'Profile',   path: '/profile' }
   ];
 

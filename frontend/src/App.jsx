@@ -23,6 +23,7 @@ import Profile from "./pages/superadmin/Profile";
 import Settings from "./pages/superadmin/Settings";
 import ManagerManagement from './pages/ManagerManagement';
 import Home from './pages/Home';
+import EnrollmentManagement from './pages/EnrollmentManagement';
 
 
 function App() {
@@ -109,7 +110,14 @@ function App() {
           <Route 
             path="/superadmin/settings" 
             element={<Settings />} 
+          
           />
+          <Route 
+            path="/enrollments" 
+            element={<EnrollmentManagement />} 
+          />  
+
+          
 
         </Route>
 
