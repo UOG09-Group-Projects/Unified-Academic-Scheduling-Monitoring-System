@@ -72,6 +72,7 @@ export default {
       boxShadow: {
         soft: "0 1px 2px rgba(18,20,28,0.04), 0 8px 24px -12px rgba(18,20,28,0.10)",
         lift: "0 4px 10px rgba(18,20,28,0.06), 0 16px 32px -16px rgba(18,20,28,0.18)",
+        glass: "0 1px 1px rgba(18,20,28,0.03), 0 24px 48px -24px rgba(26,40,63,0.22)",
         glow: "0 0 0 1px rgba(232,112,58,0.16), 0 8px 24px -8px rgba(232,112,58,0.35)",
         "ocean-glow": "0 0 0 1px rgba(0,160,245,0.18), 0 8px 24px -8px rgba(0,160,245,0.45)",
       },

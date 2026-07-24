@@ -49,14 +49,14 @@ export default function OwnerDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <SkeletonRows rows={5} />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <ErrorState message={error} />
       </div>
     );
@@ -77,12 +77,12 @@ export default function OwnerDashboard() {
   ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto">
       <PageHeader title="Owner dashboard" subtitle="Managers, roles and access across your institution" />
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10"
       >
         <StatCard label="Managers" value={managers.length} tone="ocean" icon={Users} />
         <StatCard label="Roles defined" value={roles.length} tone="violet" icon={ShieldCheck} />
@@ -98,7 +98,7 @@ export default function OwnerDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
+        className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10"
       >
         <BarChartCard title="Permissions per role" icon={ShieldCheck} data={permissionsPerRole} color="#00A0F5" />
         <DonutChartCard title="Roles configured" data={rolesCoverageChart} />

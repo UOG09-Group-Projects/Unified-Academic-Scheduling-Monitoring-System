@@ -36,8 +36,8 @@ export default function Hero() {
       id="home"
       className="relative min-h-screen bg-paper flex items-center px-[5%] pt-[110px] pb-16 overflow-hidden"
     >
-      {/* soft ambient shapes, tinted with the same ocean identity as the dashboards */}
-      <div className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-ocean-100/70 blur-3xl pointer-events-none" />
+      {/* soft ambient shapes — muted navy + warm academic accent, no neon */}
+      <div className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-accent-100/50 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 -left-32 w-[360px] h-[360px] rounded-full bg-brand-100/50 blur-3xl pointer-events-none" />
 
       <div className="relative z-10 max-w-[1200px] mx-auto grid lg:grid-cols-[1.05fr_0.95fr] gap-16 items-center w-full">
@@ -45,9 +45,9 @@ export default function Hero() {
         <div>
           <motion.div
             variants={fadeUp} initial="hidden" animate="show" custom={0}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-ink/[0.08] shadow-soft mb-6"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-xl border border-white/60 shadow-soft mb-6"
           >
-            <Sparkles size={13} className="text-ocean-700" />
+            <Sparkles size={13} className="text-brand-600" />
             <span className="text-xs font-semibold text-ink-soft tracking-wide">
               Built for academic scheduling
             </span>
@@ -60,7 +60,7 @@ export default function Hero() {
             Every class, exam and
             <br />
             deadline —{" "}
-            <span className="bg-gradient-to-r from-ocean-600 to-ocean-900 bg-clip-text text-transparent">in one place.</span>
+            <span className="bg-gradient-to-r from-brand-500 to-brand-800 bg-clip-text text-transparent">in one place.</span>
           </motion.h1>
 
           <motion.p
@@ -76,7 +76,7 @@ export default function Hero() {
             variants={fadeUp} initial="hidden" animate="show" custom={3}
             className="flex gap-4 flex-wrap"
           >
-            <Button variant="ocean" size="lg" icon={ArrowRight} className="flex-row-reverse" onClick={() => navigate("/login")}>
+            <Button variant="brand" size="lg" icon={ArrowRight} className="flex-row-reverse" onClick={() => navigate("/login")}>
               Get started
             </Button>
             <Button as="a" href="#features" variant="outline" size="lg">
@@ -91,7 +91,7 @@ export default function Hero() {
             {STATS.map(({ num, suffix, label }) => (
               <div key={label}>
                 <div className="text-3xl font-display font-bold text-ink">
-                  {num}<span className="text-ocean-700">{suffix}</span>
+                  {num}<span className="text-brand-600">{suffix}</span>
                 </div>
                 <div className="text-xs uppercase tracking-wider text-ink-faint mt-1">{label}</div>
               </div>
@@ -109,7 +109,7 @@ export default function Hero() {
           <motion.div
             animate={{ y: [0, -12, 0] }}
             transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="bg-white rounded-2xl border border-ink/[0.06] shadow-lift overflow-hidden"
+            className="bg-white/75 backdrop-blur-xl rounded-3xl border border-white/60 shadow-glass overflow-hidden"
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-ink/[0.06]">
               <div>
@@ -156,7 +156,7 @@ export default function Hero() {
             initial={{ opacity: 0, scale: 0.8, x: -10 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 1, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute -left-8 bottom-8 bg-white rounded-xl border border-ink/[0.06] shadow-lift px-4 py-3 hidden sm:block"
+            className="absolute -left-8 bottom-8 bg-white/80 backdrop-blur-xl rounded-2xl border border-white/60 shadow-glass px-4 py-3 hidden sm:block"
           >
             <p className="text-[10px] text-ink-faint font-medium">Synced live</p>
             <p className="text-sm font-display font-semibold text-ink flex items-center gap-1.5">

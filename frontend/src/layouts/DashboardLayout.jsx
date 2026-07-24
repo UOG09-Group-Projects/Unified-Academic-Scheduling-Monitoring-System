@@ -3,7 +3,7 @@ import Sidebar from './Sidebar';
 
 export default function DashboardLayout() {
   return (
-    <div className="flex h-screen bg-[#F2FAFD]">
+    <div className="flex h-screen bg-gradient-to-br from-paper via-paper-soft to-brand-50">
       <Sidebar />
       <main className="flex-1 overflow-y-auto scroll-thin md:ml-64 pt-14 md:pt-0">
         <Outlet />

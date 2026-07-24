@@ -5,16 +5,16 @@ export default function Card({
   className = '',
   hover = false,
   as = 'div',
-  padding = 'p-5',
+  padding = 'p-7',
   ...props
 }) {
   const Comp = motion[as] ?? motion.div;
 
   return (
     <Comp
-      whileHover={hover ? { y: -4, boxShadow: '0 16px 32px -16px rgba(18,20,28,0.22)' } : {}}
+      whileHover={hover ? { y: -4, boxShadow: '0 28px 52px -24px rgba(26,40,63,0.28)' } : {}}
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      className={`bg-white border border-ink/[0.06] rounded-2xl shadow-soft ${padding} ${className}`}
+      className={`bg-white/70 backdrop-blur-xl border border-white/60 rounded-3xl shadow-glass ${padding} ${className}`}
       {...props}
     >
       {children}

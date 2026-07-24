@@ -67,7 +67,7 @@ export default function Features() {
         transition={{ duration: 0.5 }}
         className="text-center mb-16"
       >
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
+        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-brand-700 mb-3">
           What's inside
         </p>
         <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4">

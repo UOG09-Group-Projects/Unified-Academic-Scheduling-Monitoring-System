@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from institutions.models import Complaint
+from institutions.models import Complaint, ContactInquiry
 
 
 class ComplaintSubmitterSerializer(serializers.Serializer):
@@ -25,3 +25,12 @@ class ComplaintSerializer(serializers.ModelSerializer):
         if not obj.replied_by:
             return None
         return {'id': obj.replied_by.id, 'username': obj.replied_by.username}
+
+
+class ContactInquirySerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = ContactInquiry
+        fields = [
+            'id', 'first_name', 'last_name', 'email', 'institution_name',
+            'enquiry_type', 'message', 'status', 'created_at',
+        ]

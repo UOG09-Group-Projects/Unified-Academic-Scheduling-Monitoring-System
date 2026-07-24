@@ -27,45 +27,40 @@ export default function About() {
   return (
     <section id="about" className="py-28 px-[5%] bg-paper-soft">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center max-w-[1100px] mx-auto">
-        {/* Visual — the same ocean gradient used across every dashboard */}
+        {/* Visual — a light glass preview, consistent with the product's real dashboards */}
         <motion.div
           initial={{ opacity: 0, x: -24 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="rounded-2xl p-2 relative overflow-hidden bg-ocean-gradient shadow-lift"
+          className="rounded-3xl p-2 relative overflow-hidden bg-white/70 backdrop-blur-xl border border-white/60 shadow-glass"
         >
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'linear-gradient(180deg, rgba(8,20,40,0.5) 0%, rgba(8,20,40,0.15) 45%, rgba(4,10,36,0.55) 100%)' }}
-          />
-
-          <div className="relative z-10 bg-white/[0.08] border border-white/15 backdrop-blur-sm rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 flex items-center justify-between bg-white/[0.05]">
-              <span className="text-[10px] font-semibold text-white/70 tracking-wide">This week</span>
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-white/85">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+          <div className="relative z-10 bg-white rounded-2xl overflow-hidden border border-ink/[0.06]">
+            <div className="px-4 py-2.5 flex items-center justify-between bg-paper-soft">
+              <span className="text-[10px] font-semibold text-ink-faint tracking-wide">This week</span>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-ink-soft">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                 Live
               </span>
             </div>
 
             <div
-              className="grid gap-px"
-              style={{ backgroundColor: "rgba(255,255,255,.1)", gridTemplateColumns: "56px repeat(5, 1fr)" }}
+              className="grid gap-px bg-ink/[0.06]"
+              style={{ gridTemplateColumns: "56px repeat(5, 1fr)" }}
             >
               {["", "MON", "TUE", "WED", "THU", "FRI"].map((d) => (
-                <div key={d} className="px-2 py-2.5 flex gap-2 items-center justify-center text-[10px] font-semibold text-white/70 bg-white/[0.06]">
+                <div key={d} className="px-2 py-2.5 flex gap-2 items-center justify-center text-[10px] font-semibold text-ink-faint bg-paper-soft">
                   {d}
                 </div>
               ))}
 
               {MOCK_ROWS.map(({ time, cells }) => (
                 <Fragment key={time}>
-                  <div className="px-1.5 py-3.5 text-right text-white/45 text-[0.6rem] bg-[rgba(8,20,40,0.28)]">
+                  <div className="px-1.5 py-3.5 text-right text-ink-faint text-[0.6rem] bg-paper-soft">
                     {time}
                   </div>
                   {cells.map((cell, i) => (
-                    <div key={`${time}-${i}`} className="p-1 min-h-[42px] bg-[rgba(8,20,40,0.2)]">
+                    <div key={`${time}-${i}`} className="p-1 min-h-[42px] bg-white">
                       {cell && (
                         <div className={`${EVENT_STYLES[cell.type]} rounded p-1 text-[0.58rem] font-semibold leading-[1.3] whitespace-pre-line shadow-sm`}>
                           {cell.text}
@@ -86,7 +81,7 @@ export default function About() {
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
         >
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-brand-700 mb-3">
             About LightLearn
           </p>
           <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4 max-w-[400px]">
