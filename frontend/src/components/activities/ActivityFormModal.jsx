@@ -43,7 +43,7 @@ export default function ActivityFormModal({ open, onClose, onSubmit, initial, sa
     >
       <form id="activity-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input label="Name" required value={form.name} onChange={set('name')} placeholder="e.g. Assignment 1" />
-        <Input label="Due date" value={form.due_date} onChange={set('due_date')} placeholder="e.g. 2026-08-01" />
+        <Input label="Due date" type="date" value={form.due_date} onChange={set('due_date')} />
         <Textarea label="Description" value={form.description} onChange={set('description')} placeholder="Optional notes…" />
         <label className="flex items-center gap-2 text-sm text-ink-soft select-none cursor-pointer">
           <input type="checkbox" checked={form.optional} onChange={set('optional')} className="accent-brand-600" />

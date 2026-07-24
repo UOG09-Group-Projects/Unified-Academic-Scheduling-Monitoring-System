@@ -1,20 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Building2, BookOpen, Users,
   GraduationCap, Layers3, Settings, User, LogOut,
-  FileText, CreditCard, TrendingUp, Menu, X, ShieldCheck,
-  HelpCircle, MessageSquare,
+  FileText, TrendingUp, Menu, X, ShieldCheck,
+  HelpCircle, MessageSquare, ClipboardList,
 } from 'lucide-react';
 import logo from '../assets/logoll.png';
 import { getStoredUser, clearSession } from '../services/authStorage';
+import complaintService from '../services/complaintService';
+import contactService from '../services/contactService';
 
 const NAV_ITEMS = {
   SUPER_ADMIN: [
     { label: 'Dashboard',     path: '/dashboard/super-admin' },
     { label: 'Institutions',  path: '/institutions' },
-    { label: 'Subscriptions', path: '/subscriptions' },
     { label: 'Messages',      path: '/superadmin/messages' },
     { label: 'Settings',      path: '/superadmin/settings' },
     { label: 'Profile',       path: '/superadmin/profile' },
@@ -36,14 +37,17 @@ const NAV_ITEMS = {
     { label: 'Profile',   path: '/profile' },
   ],
   EDUCATOR: [
-    { label: 'Dashboard', path: '/dashboard/educator' },
-    { label: 'Help',      path: '/help' },
-    { label: 'Profile',   path: '/profile' },
+    { label: 'Dashboard',  path: '/dashboard/educator' },
+    { label: 'Activities', path: '/educator/activities' },
+    { label: 'Help',       path: '/help' },
+    { label: 'Profile',    path: '/profile' },
   ],
   STUDENT: [
-    { label: 'Dashboard', path: '/dashboard/student' },
-    { label: 'Help',      path: '/help' },
-    { label: 'Profile',   path: '/profile' },
+    { label: 'Dashboard',   path: '/dashboard/student' },
+    { label: 'My Courses',  path: '/my-courses' },
+    { label: 'Progress',    path: '/progress' },
+    { label: 'Help',        path: '/help' },
+    { label: 'Profile',     path: '/profile' },
   ],
   PARENT: [
     { label: 'Dashboard', path: '/dashboard/parent' },
@@ -72,13 +76,13 @@ const ICONS = {
   Reports:       FileText,
   Settings:      Settings,
   Profile:       User,
-  Subscriptions: CreditCard,
   Progress:      TrendingUp,
   Schedule:      LayoutDashboard,
   Managers:      Users,
   Roles:         ShieldCheck,
   Help:          HelpCircle,
   Messages:      MessageSquare,
+  Activities:    ClipboardList,
 };
 
 const SECONDARY = new Set(['Profile', 'Settings', 'Help']);
@@ -94,6 +98,19 @@ function SidebarContent({ onClose }) {
 
   const primaryItems   = items.filter((i) => !SECONDARY.has(i.label));
   const secondaryItems = items.filter((i) => SECONDARY.has(i.label));
+
+  const [unopenedMessages, setUnopenedMessages] = useState(0);
+
+  useEffect(() => {
+    if (role !== 'SUPER_ADMIN') return;
+    let ignore = false;
+    Promise.all([complaintService.getStats(), contactService.getStats()])
+      .then(([complaintStats, inquiryStats]) => {
+        if (!ignore) setUnopenedMessages((complaintStats.open ?? 0) + (inquiryStats.new ?? 0));
+      })
+      .catch(() => {});
+    return () => { ignore = true; };
+  }, [role]);
 
   function handleLogout() {
     clearSession();
@@ -148,7 +165,12 @@ function SidebarContent({ onClose }) {
           </p>
 
           {primaryItems.map((item) => (
-            <NavItem key={item.path} item={item} onClose={onClose} />
+            <NavItem
+              key={item.path}
+              item={item}
+              onClose={onClose}
+              badge={item.label === 'Messages' ? unopenedMessages : 0}
+            />
           ))}
 
           {secondaryItems.length > 0 && (
@@ -183,7 +205,7 @@ function SidebarContent({ onClose }) {
   );
 }
 
-function NavItem({ item, onClose }) {
+function NavItem({ item, onClose, badge = 0 }) {
   const Icon = ICONS[item.label] ?? LayoutDashboard;
 
   return (
@@ -206,7 +228,12 @@ function NavItem({ item, onClose }) {
             />
           )}
           <Icon size={15} className="shrink-0" />
-          <span className="truncate">{item.label}</span>
+          <span className="truncate flex-1">{item.label}</span>
+          {badge > 0 && (
+            <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10px] font-semibold flex items-center justify-center">
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
         </>
       )}
     </NavLink>

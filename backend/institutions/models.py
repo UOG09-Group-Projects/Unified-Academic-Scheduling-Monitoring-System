@@ -507,3 +507,42 @@ class Complaint(models.Model):
 
     def __str__(self):
         return f"[{self.type}] {self.subject}"
+
+
+# ---------------------------------------------------------------------------
+# ContactInquiry (public landing-page contact form -> super admin inbox)
+# ---------------------------------------------------------------------------
+
+class ContactInquiry(models.Model):
+    """
+    A message submitted through the public marketing site's contact form,
+    from a visitor with no LightLearn account. Reviewed by super admins only.
+    """
+    ENQUIRY_CHOICES = [
+        ('GENERAL',     'General Enquiry'),
+        ('DEMO',        'Request a Demo'),
+        ('PRICING',     'Pricing & Plans'),
+        ('SUPPORT',     'Technical Support'),
+        ('PARTNERSHIP', 'Partnership'),
+    ]
+    STATUS_CHOICES = [
+        ('NEW',      'New'),
+        ('REVIEWED', 'Reviewed'),
+    ]
+
+    first_name       = models.CharField(max_length=100)
+    last_name        = models.CharField(max_length=100)
+    email            = models.EmailField()
+    institution_name = models.CharField(max_length=200, blank=True)
+    enquiry_type     = models.CharField(max_length=20, choices=ENQUIRY_CHOICES, default='GENERAL')
+    message          = models.TextField()
+    status           = models.CharField(max_length=20, choices=STATUS_CHOICES, default='NEW')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'contact_inquiries'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} <{self.email}>"

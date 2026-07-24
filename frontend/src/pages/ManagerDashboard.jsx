@@ -49,7 +49,7 @@ export default function ManagerDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <SkeletonRows rows={5} />
       </div>
     );
@@ -57,7 +57,7 @@ export default function ManagerDashboard() {
 
   if (error) {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <ErrorState message={error} />
       </div>
     );
@@ -80,7 +80,7 @@ export default function ManagerDashboard() {
   ];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-10">
       <PageHeader
         title="Manager dashboard"
         subtitle={`Operational overview of ${summary.institution_name}`}
@@ -88,7 +88,7 @@ export default function ManagerDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-5"
       >
         {stats.map((s, i) => (
           <StatCard key={s.label} {...s} tone={TONES[i]} />
@@ -97,7 +97,7 @@ export default function ManagerDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="grid grid-cols-1 md:grid-cols-2 gap-6"
       >
         <BarChartCard title="Students per batch" icon={Users} data={studentsPerBatchChart} color="#00A0F5" />
         <BarChartCard title="Educators per course" icon={GraduationCap} data={educatorsPerCourseChart} color="#1F9D6C" />

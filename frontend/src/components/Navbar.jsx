@@ -36,14 +36,14 @@ export default function Navbar() {
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-[5%] h-[68px] transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-[5%] h-[72px] transition-all duration-300 ${
         scrolled
-          ? "bg-paper/90 backdrop-blur-md border-b border-ink/[0.06] shadow-soft"
+          ? "bg-white/70 backdrop-blur-xl border-b border-white/60 shadow-soft"
           : "bg-transparent border-b border-transparent"
       }`}
     >
       <a href="#home" className="flex items-center gap-2 no-underline">
-        <span className="w-8 h-8 rounded-lg bg-ocean-gradient flex items-center justify-center shadow-ocean-glow">
+        <span className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center shadow-soft">
           <GraduationCap size={16} strokeWidth={2.4} className="text-white" />
         </span>
         <span className="font-display text-[1.2rem] font-bold tracking-tight text-ink">
@@ -65,7 +65,7 @@ export default function Navbar() {
             {active === href.replace("#", "") && (
               <motion.span
                 layoutId="nav-underline"
-                className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-ocean-gradient rounded-full"
+                className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-brand-600 rounded-full"
               />
             )}
           </li>
@@ -79,7 +79,7 @@ export default function Navbar() {
         <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
           Sign in
         </Button>
-        <Button variant="ocean" size="sm" onClick={() => navigate("/login")}>
+        <Button variant="brand" size="sm" onClick={() => navigate("/login")}>
           Get started
         </Button>
       </div>
@@ -95,7 +95,7 @@ export default function Navbar() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="md:hidden absolute top-[68px] left-0 right-0 bg-paper border-b border-ink/[0.06] shadow-lift px-[5%] py-5 flex flex-col gap-4"
+          className="md:hidden absolute top-[72px] left-0 right-0 bg-white/85 backdrop-blur-xl border-b border-white/60 shadow-lift px-[5%] py-5 flex flex-col gap-4"
         >
           {NAV_LINKS.map(({ label, href }) => (
             <a
@@ -115,7 +115,7 @@ export default function Navbar() {
               <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate("/login")}>
                 Sign in
               </Button>
-              <Button variant="ocean" size="sm" className="flex-1" onClick={() => navigate("/login")}>
+              <Button variant="brand" size="sm" className="flex-1" onClick={() => navigate("/login")}>
                 Get started
               </Button>
             </div>

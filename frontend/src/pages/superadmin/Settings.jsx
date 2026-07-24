@@ -1,7 +1,7 @@
 // src/pages/superadmin/Settings.jsx
 import { useState } from "react";
 import {
-  Globe, Mail, CreditCard, Shield,
+  Globe, Mail, Shield,
   Palette, Database, Save, RefreshCw,
   CheckCircle,
   Server, Zap, FileText,
@@ -9,39 +9,10 @@ import {
 
 const TABS = [
   { id: "general", label: "General", icon: Globe },
-  { id: "billing", label: "Billing & Plans", icon: CreditCard },
   { id: "email", label: "Email", icon: Mail },
   { id: "security", label: "Security", icon: Shield },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "system", label: "System", icon: Server },
-];
-
-const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: "$49",
-    period: "/month",
-    features: ["Up to 200 students", "10 courses", "5 instructors", "Basic analytics", "Email support"],
-    color: "sky",
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    price: "$199",
-    period: "/month",
-    features: ["Up to 1,500 students", "50 courses", "30 instructors", "Advanced analytics", "Priority support", "Custom branding"],
-    color: "purple",
-    popular: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: "$499",
-    period: "/month",
-    features: ["Unlimited students", "Unlimited courses", "Unlimited instructors", "Full analytics suite", "Dedicated support", "Custom domain", "SSO / SAML"],
-    color: "blue",
-  },
 ];
 
 function SectionCard({ title, description, children }) {
@@ -144,8 +115,6 @@ export default function Settings() {
     customCss: false,
   });
 
-  const [selectedPlan, setSelectedPlan] = useState("enterprise");
-
   return (
     <div className="min-h-screen bg-paper-soft p-4 md:p-8">
       {/* Toast */}
@@ -237,82 +206,6 @@ export default function Settings() {
                 <div className="flex justify-end">
                   <button
                     onClick={() => showToast("General settings saved.")}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
-                  >
-                    <Save className="w-4 h-4" /> Save Changes
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* ── Billing & Plans ── */}
-            {activeTab === "billing" && (
-              <>
-                <SectionCard title="Subscription Plans" description="Configure pricing tiers for institutions">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {PLANS.map((plan) => {
-                      const isSelected = selectedPlan === plan.id;
-                      const colorMap = {
-                        sky: { border: "border-sky-200", bg: "bg-sky-50", text: "text-sky-700", btn: "bg-sky-600" },
-                        purple: { border: "border-purple-200", bg: "bg-purple-50", text: "text-purple-700", btn: "bg-purple-600" },
-                        blue: { border: "border-brand-600", bg: "bg-brand-50/60", text: "text-brand-700", btn: "bg-brand-600" },
-                      };
-                      const c = colorMap[plan.color];
-                      return (
-                        <div
-                          key={plan.id}
-                          onClick={() => setSelectedPlan(plan.id)}
-                          className={`relative border-2 rounded-2xl p-4 cursor-pointer transition-all ${
-                            isSelected ? `${c.border} ${c.bg}` : "border-ink/[0.06] hover:border-ink/10 bg-white"
-                          }`}
-                        >
-                          {plan.popular && (
-                            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-600 text-white">
-                                Popular
-                              </span>
-                            </div>
-                          )}
-                          <p className={`text-sm font-semibold mb-1 ${isSelected ? c.text : "text-ink-soft"}`}>{plan.name}</p>
-                          <div className="flex items-baseline gap-0.5 mb-3">
-                            <span className="text-2xl font-bold text-ink">{plan.price}</span>
-                            <span className="text-xs text-ink-faint">{plan.period}</span>
-                          </div>
-                          <ul className="space-y-1.5">
-                            {plan.features.map((f) => (
-                              <li key={f} className="flex items-start gap-1.5 text-xs text-ink-soft">
-                                <CheckCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isSelected ? c.text : "text-gray-400"}`} />
-                                {f}
-                              </li>
-                            ))}
-                          </ul>
-                          {isSelected && (
-                            <div className={`mt-3 text-center text-xs font-medium py-1 rounded-lg text-white ${c.btn}`}>
-                              Current Plan ✓
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Payment Gateway" description="Configure your payment processor">
-                  <div className="space-y-0">
-                    <InputRow label="Stripe Publishable Key" value="pk_live_•••••••••••••" onChange={() => {}} />
-                    <InputRow label="Stripe Secret Key" value="sk_live_•••••••••••••" onChange={() => {}} />
-                    <ToggleRow
-                      label="Test Mode"
-                      description="Use sandbox credentials for testing"
-                      checked={false}
-                      onChange={() => {}}
-                    />
-                  </div>
-                </SectionCard>
-
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => showToast("Billing settings saved.")}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
                   >
                     <Save className="w-4 h-4" /> Save Changes

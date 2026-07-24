@@ -45,14 +45,14 @@ export default function EducatorDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <SkeletonRows rows={5} />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <ErrorState message={error} />
       </div>
     );
@@ -66,12 +66,12 @@ export default function EducatorDashboard() {
   const batchesPerCourse = data.courses.map((c) => ({ name: c.code, value: c.batch_count }));
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto">
       <PageHeader title="Educator dashboard" subtitle="Your courses, batches and schedule" />
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10"
       >
         <StatCard label="My Courses" value={data.summary.total_courses} tone="ocean" icon={BookOpen} />
         <StatCard label="My Batches" value={data.summary.total_batches} tone="success" icon={GraduationCap} />
@@ -85,7 +85,7 @@ export default function EducatorDashboard() {
         />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 mb-6 items-start">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mb-8 items-start">
         <div>
           <h2 className="text-sm font-semibold text-ink mb-3">My Courses</h2>
 
@@ -120,7 +120,7 @@ export default function EducatorDashboard() {
         <BarChartCard title="Batches per course" data={batchesPerCourse} color="#00A0F5" height={260} />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="mb-6">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="mb-8">
         <h2 className="text-sm font-semibold text-ink mb-3">Workload</h2>
         <WorkloadSummary />
       </motion.div>

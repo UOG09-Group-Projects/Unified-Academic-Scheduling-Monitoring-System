@@ -77,7 +77,7 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <SkeletonRows rows={5} />
       </div>
     );
@@ -85,7 +85,7 @@ export default function StudentDashboard() {
 
   if (error) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <ErrorState message={error} onRetry={loadDashboard} />
       </div>
     );
@@ -104,10 +104,10 @@ export default function StudentDashboard() {
   }));
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto">
       <PageHeader title="Student dashboard" subtitle="Your learning progress and course activity" />
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0} className="mb-8">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0} className="mb-10">
         <Card className="flex flex-col gap-4">
           <StudentProfileCard student={student} />
           <ProgressBar
@@ -121,12 +121,12 @@ export default function StudentDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-5 mb-10"
       >
         <StudentStatCards summary={summary} progressRecords={progressRecords} />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 mb-6 items-start">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mb-8 items-start">
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-ink">Courses</h2>
@@ -143,15 +143,15 @@ export default function StudentDashboard() {
         <BarChartCard title="Educators per course" data={educatorsPerCourse} color="#00A0F5" height={260} />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mb-6">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mb-8">
         <EnrollmentList enrollments={enrollments ?? []} onChange={loadDashboard} />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={4} className="mb-6">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={4} className="mb-8">
         <GuardianList guardians={guardians} onChange={loadGuardians} />
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5} className="mb-6">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5} className="mb-8">
         <h2 className="text-sm font-semibold text-ink mb-3">Workload</h2>
         <WorkloadSummary />
       </motion.div>

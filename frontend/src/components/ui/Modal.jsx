@@ -13,7 +13,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
           transition={{ duration: 0.15 }}
         >
           <motion.div
-            className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-ink/40"
             onClick={onClose}
           />
 
@@ -22,15 +22,15 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className={`relative w-full ${width} bg-white rounded-2xl shadow-lift
-              border border-ink/[0.06] max-h-[88vh] flex flex-col overflow-hidden`}
+            className={`relative w-full ${width} bg-white/80 backdrop-blur-2xl rounded-3xl shadow-glass
+              border border-white/60 max-h-[88vh] flex flex-col overflow-hidden`}
           >
             {title && (
               <div className="flex items-center justify-between px-6 py-4 border-b border-ink/[0.06] shrink-0">
                 <h3 className="font-display font-semibold text-ink text-[1.05rem]">{title}</h3>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-faint
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-ink-faint
                              hover:text-ink hover:bg-ink/[0.05] transition-colors"
                   aria-label="Close"
                 >

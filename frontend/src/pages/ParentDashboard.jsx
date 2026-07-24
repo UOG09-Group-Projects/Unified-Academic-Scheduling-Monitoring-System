@@ -62,7 +62,7 @@ export default function ParentDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <SkeletonRows rows={5} />
       </div>
     );
@@ -70,7 +70,7 @@ export default function ParentDashboard() {
 
   if (error) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <ErrorState message={error} />
       </div>
     );
@@ -82,10 +82,13 @@ export default function ParentDashboard() {
   const coursesPerChild = children.map((c) => ({ name: c.name, value: c.total_courses ?? 0 }));
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
       <PageHeader title="Parent dashboard" subtitle={`Welcome, ${guardian?.name ?? ''}`} />
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0}>
+      <motion.div
+        variants={fadeUp} initial="hidden" animate="show" custom={0}
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6"
+      >
         <StatCard label="Children" value={total_children} tone="brand" icon={Users} />
       </motion.div>
 
@@ -94,7 +97,7 @@ export default function ParentDashboard() {
           <EmptyState icon={User} title="No children linked" message="No children are linked to your account yet." />
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {children.length > 1 && (
             <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1}>
               <Tabs

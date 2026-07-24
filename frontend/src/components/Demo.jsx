@@ -35,7 +35,7 @@ export default function Demo() {
         transition={{ duration: 0.5 }}
         className="text-center mb-16"
       >
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
+        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-brand-700 mb-3">
           Two roles, one platform
         </p>
         <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4">
@@ -63,7 +63,7 @@ export default function Demo() {
               <ul className="flex flex-col gap-2 mb-7 mt-auto">
                 {points.map((p) => (
                   <li key={p} className="flex items-center gap-2 text-sm text-ink-soft">
-                    <span className="w-1.5 h-1.5 rounded-full bg-ocean-600 shrink-0" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0" />
                     {p}
                   </li>
                 ))}

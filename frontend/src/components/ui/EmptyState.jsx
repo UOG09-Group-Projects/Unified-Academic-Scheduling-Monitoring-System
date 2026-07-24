@@ -7,9 +7,9 @@ export default function EmptyState({ icon: Icon = Inbox, title = 'Nothing here y
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-col items-center justify-center text-center py-14 px-6"
+      className="flex flex-col items-center justify-center text-center py-16 px-6"
     >
-      <div className="w-12 h-12 rounded-2xl bg-ink/[0.04] flex items-center justify-center mb-4 text-ink-faint">
+      <div className="w-14 h-14 rounded-3xl bg-ink/[0.04] flex items-center justify-center mb-4 text-ink-faint">
         <Icon size={20} />
       </div>
       <p className="text-sm font-semibold text-ink mb-1">{title}</p>

@@ -17,6 +17,9 @@ import ManagerDashboard from './pages/ManagerDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import EducatorDashboard from './pages/EducatorDashboard';
 import StudentDashboard from './pages/StudentDashboard';
+import StudentProgress from './pages/StudentProgress';
+import StudentCourses from './pages/StudentCourses';
+import EducatorActivities from './pages/EducatorActivities';
 import ParentDashboard from './pages/ParentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
 import OwnerDashboard from "./pages/OwnerDashboard";
@@ -27,7 +30,6 @@ import ManagerManagement from './pages/ManagerManagement';
 import Home from './pages/Home';
 import RolesPermissions from './pages/RolesPermissions';
 import UserProfile from './pages/UserProfile';
-import Subscriptions from './pages/superadmin/Subscriptions';
 import HelpPage from './pages/HelpPage';
 import Messages from './pages/superadmin/Messages';
 
@@ -128,7 +130,11 @@ function App() {
 
           <Route path="/roles" element={<RolesPermissions />} />
 
-          <Route path="/subscriptions" element={<Subscriptions />} />
+          <Route path="/progress" element={<StudentProgress />} />
+
+          <Route path="/my-courses" element={<StudentCourses />} />
+
+          <Route path="/educator/activities" element={<EducatorActivities />} />
 
           <Route path="/help" element={<HelpPage />} />
 

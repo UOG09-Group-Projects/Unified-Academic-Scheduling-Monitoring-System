@@ -11,8 +11,8 @@ import SetProgressModal from './SetProgressModal';
 import activityService from '../../services/activityService';
 import { useToast } from '../ui/Toast';
 
-export default function EducatorCourseActivities({ courseId }) {
-  const [open, setOpen] = useState(false);
+export default function EducatorCourseActivities({ courseId, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);

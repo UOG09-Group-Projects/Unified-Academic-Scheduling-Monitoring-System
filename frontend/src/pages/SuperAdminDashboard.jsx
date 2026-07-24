@@ -46,14 +46,14 @@ export default function SuperAdminDashboard() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <SkeletonRows rows={5} />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 max-w-6xl mx-auto">
         <ErrorState message={error} />
       </div>
     );
@@ -84,12 +84,12 @@ export default function SuperAdminDashboard() {
   ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto">
       <PageHeader title="Super admin dashboard" subtitle="System-wide overview across all institutions" />
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10"
       >
         {stats.map((s, i) => (
           <StatCard key={s.label} {...s} tone={TONES[i]} />
@@ -98,7 +98,7 @@ export default function SuperAdminDashboard() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
+        className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10"
       >
         <BarChartCard title="Students per institution" icon={Users} data={studentsPerInstitution} color="#00A0F5" />
         <DonutChartCard title="Institution status" data={statusChart} />
@@ -152,7 +152,7 @@ export default function SuperAdminDashboard() {
         </Card>
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-8">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mt-10">
         <Card>
           <h2 className="text-sm font-semibold text-ink mb-4 flex items-center gap-2">
             <Activity className="w-4 h-4 text-ink-faint" />

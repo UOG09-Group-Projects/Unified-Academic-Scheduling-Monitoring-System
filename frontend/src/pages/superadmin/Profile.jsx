@@ -1,18 +1,20 @@
 // src/pages/superadmin/Profile.jsx
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
-  User, Mail, Phone, Shield, Camera, Save,
+  User, Mail, Shield, Camera, Save,
   Lock, Eye, EyeOff, CheckCircle, AlertCircle,
-  Globe, Bell, Key, LogOut, Pencil, X
+  Pencil, X, LogOut
 } from "lucide-react";
+import api from "../../services/api";
 
-const ACTIVITY_LOG = [
-  { id: 1, action: "Removed institution", detail: "Deleted Crestwood School", time: "2 hours ago", type: "danger" },
-  { id: 2, action: "Suspended institution", detail: "Suspended Lakeside College", time: "5 hours ago", type: "warning" },
-  { id: 3, action: "Added new institution", detail: "Onboarded Summit Tech Institute", time: "Yesterday, 2:30 PM", type: "success" },
-  { id: 4, action: "Updated settings", detail: "Changed platform email settings", time: "Yesterday, 10:00 AM", type: "info" },
-  { id: 5, action: "Login", detail: "Signed in from Portland, OR", time: "2 days ago", type: "info" },
-];
+const ROLE_LABEL = {
+  SUPER_ADMIN: "Super Admin",
+  OWNER: "Owner",
+  MANAGER: "Manager",
+  EDUCATOR: "Educator",
+  STUDENT: "Student",
+  PARENT: "Parent",
+};
 
 function InputField({ label, icon: Icon, type = "text", value, onChange, disabled, placeholder }) {
   return (
@@ -64,37 +66,80 @@ export default function Profile() {
   const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState("profile");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [profile, setProfile] = useState({
-    name: "Alex Reynolds",
-    email: "alex.reynolds@platform.io",
-    phone: "+1 (555) 987-6543",
-    role: "Super Administrator",
-    timezone: "America/Los_Angeles",
-    avatar: null,
-  });
+  const [profile, setProfile] = useState({ username: "", email: "", role: "", profile_picture: null });
+  const [form, setForm] = useState({ username: "", email: "" });
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
-  const [notifications, setNotifications] = useState({
-    newInstitution: true,
-    subscriptionExpiry: true,
-    paymentFailed: true,
-    systemAlerts: true,
-    weeklyReport: false,
-    loginAlerts: true,
-  });
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleSaveProfile = () => {
-    setEditMode(false);
-    showToast("Profile updated successfully.");
+  useEffect(() => {
+    api.get("/user/profile/")
+      .then((res) => {
+        setProfile({
+          username: res.data.username,
+          email: res.data.email,
+          role: res.data.role,
+          profile_picture: res.data.profile_picture,
+        });
+        setForm({ username: res.data.username, email: res.data.email });
+        if (res.data.profile_picture) setPreviewUrl(res.data.profile_picture);
+      })
+      .catch(() => showToast("Failed to load profile.", "error"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
-  const handlePasswordChange = (e) => {
+  const handleCancelEdit = () => {
+    setForm({ username: profile.username, email: profile.email });
+    setPreviewUrl(profile.profile_picture || null);
+    setSelectedFile(null);
+    setEditMode(false);
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const res = await api.patch("/user/profile/", { username: form.username, email: form.email });
+      const updated = res.data.user;
+
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("profile_picture", selectedFile);
+        const picRes = await api.post("/user/profile/picture/", formData);
+        if (picRes.data.profile_picture) {
+          setPreviewUrl(picRes.data.profile_picture);
+          setProfile((p) => ({ ...p, profile_picture: picRes.data.profile_picture }));
+        }
+      }
+
+      setProfile((p) => ({ ...p, username: updated.username, email: updated.email }));
+      setForm({ username: updated.username, email: updated.email });
+      setSelectedFile(null);
+      setEditMode(false);
+      showToast("Profile updated successfully.");
+    } catch (err) {
+      showToast(err?.response?.data?.error || "Failed to update profile.", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
       showToast("New passwords do not match.", "error");
@@ -104,8 +149,20 @@ export default function Profile() {
       showToast("Password must be at least 8 characters.", "error");
       return;
     }
-    setPasswords({ current: "", new: "", confirm: "" });
-    showToast("Password changed successfully.");
+    setSaving(true);
+    try {
+      await api.post("/user/profile/change-password/", {
+        current_password: passwords.current,
+        new_password: passwords.new,
+        confirm_password: passwords.confirm,
+      });
+      setPasswords({ current: "", new: "", confirm: "" });
+      showToast("Password changed successfully.");
+    } catch (err) {
+      showToast(err?.response?.data?.error || "Failed to change password.", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const passwordStrength = (pw) => {
@@ -124,9 +181,11 @@ export default function Profile() {
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "security", label: "Security", icon: Lock },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "activity", label: "Activity Log", icon: Key },
   ];
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64 text-ink-faint text-sm">Loading profile...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-paper-soft p-4 md:p-8">
@@ -152,46 +211,45 @@ export default function Profile() {
             {/* Avatar */}
             <div className="relative">
               <div className="w-20 h-20 rounded-2xl bg-brand-600 flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
-                {profile.avatar ? (
-                  <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {editMode && previewUrl ? (
+                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : profile.profile_picture ? (
+                  <img src={profile.profile_picture} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  profile.name.split(" ").map(n => n[0]).join("").slice(0, 2)
+                  profile.username?.slice(0, 2).toUpperCase()
                 )}
               </div>
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-brand-600 text-white rounded-lg flex items-center justify-center shadow-md hover:bg-brand-700 transition-colors"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const url = URL.createObjectURL(file);
-                    setProfile(p => ({ ...p, avatar: url }));
-                  }
-                }}
-              />
+              {editMode && (
+                <>
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-brand-600 text-white rounded-lg flex items-center justify-center shadow-md hover:bg-brand-700 transition-colors"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                </>
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-ink">{profile.name}</h2>
+                <h2 className="text-xl font-bold text-ink">{profile.username}</h2>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-50 text-brand-700">
-                  <Shield className="w-3 h-3" /> Super Admin
+                  <Shield className="w-3 h-3" /> {ROLE_LABEL[profile.role] || profile.role}
                 </span>
               </div>
               <p className="text-sm text-ink-faint mt-0.5">{profile.email}</p>
-              <p className="text-xs text-ink-faint mt-0.5">Last login: Today at 9:41 AM · Portland, OR</p>
             </div>
 
             <button
-              onClick={() => setEditMode(!editMode)}
+              onClick={() => (editMode ? handleCancelEdit() : setEditMode(true))}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                 editMode ? "text-ink-soft border border-ink/10 hover:bg-ink/[0.03]" : "text-white bg-brand-600 hover:bg-brand-700"
               }`}
@@ -225,52 +283,33 @@ export default function Profile() {
             {activeTab === "profile" && (
               <div className="space-y-5 max-w-lg">
                 <InputField
-                  label="Full Name"
+                  label="Username"
                   icon={User}
-                  value={profile.name}
-                  onChange={(e) => setProfile(p => ({ ...p, name: e.target.value }))}
+                  value={form.username}
+                  onChange={(e) => setForm(p => ({ ...p, username: e.target.value }))}
                   disabled={!editMode}
                 />
                 <InputField
                   label="Email Address"
                   icon={Mail}
                   type="email"
-                  value={profile.email}
-                  onChange={(e) => setProfile(p => ({ ...p, email: e.target.value }))}
+                  value={form.email}
+                  onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
                   disabled={!editMode}
                 />
                 <InputField
-                  label="Phone Number"
-                  icon={Phone}
-                  type="tel"
-                  value={profile.phone}
-                  onChange={(e) => setProfile(p => ({ ...p, phone: e.target.value }))}
-                  disabled={!editMode}
+                  label="Role"
+                  icon={Shield}
+                  value={ROLE_LABEL[profile.role] || profile.role}
+                  disabled
                 />
-                <div>
-                  <label className="block text-sm font-medium text-ink-soft mb-1.5">Timezone</label>
-                  <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint" />
-                    <select
-                      value={profile.timezone}
-                      onChange={(e) => setProfile(p => ({ ...p, timezone: e.target.value }))}
-                      disabled={!editMode}
-                      className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-ink/10 bg-white focus:outline-none focus:ring-2 focus:ring-[#395886]/30 disabled:bg-paper-soft disabled:text-ink-faint appearance-none"
-                    >
-                      <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                      <option value="America/Denver">Mountain Time (MT)</option>
-                      <option value="America/Chicago">Central Time (CT)</option>
-                      <option value="America/New_York">Eastern Time (ET)</option>
-                      <option value="UTC">UTC</option>
-                    </select>
-                  </div>
-                </div>
                 {editMode && (
                   <button
                     onClick={handleSaveProfile}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
+                    disabled={saving}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm disabled:opacity-60"
                   >
-                    <Save className="w-4 h-4" /> Save Changes
+                    <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save Changes"}
                   </button>
                 )}
               </div>
@@ -315,9 +354,10 @@ export default function Profile() {
                   />
                   <button
                     type="submit"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
+                    disabled={saving}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm disabled:opacity-60"
                   >
-                    <Lock className="w-4 h-4" /> Update Password
+                    <Lock className="w-4 h-4" /> {saving ? "Updating…" : "Update Password"}
                   </button>
                 </form>
 
@@ -339,75 +379,6 @@ export default function Profile() {
                   <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors">
                     <LogOut className="w-4 h-4" /> Sign out all sessions
                   </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── Notifications Tab ── */}
-            {activeTab === "notifications" && (
-              <div className="max-w-lg space-y-2">
-                <h3 className="text-sm font-semibold text-ink-soft mb-4">Email Notifications</h3>
-                {[
-                  { key: "newInstitution", label: "New Institution Registered", desc: "When a new institution signs up" },
-                  { key: "subscriptionExpiry", label: "Subscription Expiring", desc: "7 days before a subscription expires" },
-                  { key: "paymentFailed", label: "Payment Failed", desc: "When an institution's payment fails" },
-                  { key: "systemAlerts", label: "System Alerts", desc: "Critical platform alerts and outages" },
-                  { key: "weeklyReport", label: "Weekly Summary Report", desc: "Every Monday morning digest" },
-                  { key: "loginAlerts", label: "New Login Alerts", desc: "When a new device logs into your account" },
-                ].map(({ key, label, desc }) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between p-4 rounded-xl hover:bg-paper-soft/60 transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{label}</p>
-                      <p className="text-xs text-ink-faint">{desc}</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications(n => ({ ...n, [key]: !n[key] }))}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${notifications[key] ? "bg-brand-600" : "bg-gray-200"}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${notifications[key] ? "translate-x-5" : "translate-x-0"}`} />
-                    </button>
-                  </div>
-                ))}
-                <div className="pt-4">
-                  <button
-                    onClick={() => showToast("Notification preferences saved.")}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm"
-                  >
-                    <Save className="w-4 h-4" /> Save Preferences
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── Activity Tab ── */}
-            {activeTab === "activity" && (
-              <div className="max-w-lg">
-                <h3 className="text-sm font-semibold text-ink-soft mb-4">Recent Activity</h3>
-                <div className="space-y-1">
-                  {ACTIVITY_LOG.map((log, idx) => {
-                    const dotColors = {
-                      danger: "bg-red-400",
-                      warning: "bg-amber-400",
-                      success: "bg-emerald-400",
-                      info: "bg-brand-600",
-                    };
-                    return (
-                      <div key={log.id} className="flex gap-4 p-3 rounded-xl hover:bg-paper-soft/60 transition-colors">
-                        <div className="flex flex-col items-center">
-                          <div className={`w-2 h-2 rounded-full mt-1.5 ${dotColors[log.type]}`} />
-                          {idx < ACTIVITY_LOG.length - 1 && <div className="w-px flex-1 bg-gray-200 my-1" />}
-                        </div>
-                        <div className="flex-1 pb-2">
-                          <p className="text-sm font-medium text-gray-800">{log.action}</p>
-                          <p className="text-xs text-ink-faint">{log.detail}</p>
-                          <p className="text-xs text-ink-faint mt-1">{log.time}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             )}

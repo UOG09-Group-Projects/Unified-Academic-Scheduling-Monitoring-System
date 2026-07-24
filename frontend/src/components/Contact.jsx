@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Phone, MapPin, Clock, Send, Check } from "lucide-react";
+import { Mail, Phone, MapPin, Clock, Send, Check, AlertCircle } from "lucide-react";
 import { Input, Select, Textarea } from "./ui/Field";
 import Button from "./ui/Button";
 import Card from "./ui/Card";
+import contactService from "../services/contactService";
 
 const CONTACT_ITEMS = [
   { icon: Mail, title: "Email", info: "hello@lightlearn.app" },
@@ -14,11 +15,33 @@ const CONTACT_ITEMS = [
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3000);
+    const form = e.target;
+    const data = new FormData(form);
+
+    setSending(true);
+    setError(null);
+    try {
+      await contactService.submit({
+        first_name: data.get("firstName"),
+        last_name: data.get("lastName"),
+        email: data.get("email"),
+        institution_name: data.get("institution"),
+        enquiry_type: data.get("enquiryType"),
+        message: data.get("message"),
+      });
+      form.reset();
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 3000);
+    } catch (err) {
+      setError(err?.response?.data?.error || "Failed to send message. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -30,7 +53,7 @@ export default function Contact() {
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.5 }}
         >
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-brand-700 mb-3">
             Get in touch
           </p>
           <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4">
@@ -51,8 +74,8 @@ export default function Contact() {
                 transition={{ duration: 0.4, delay: i * 0.06 }}
                 className="flex gap-3.5 items-start"
               >
-                <div className="w-10 h-10 bg-ocean-50 border border-ink/[0.08] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Icon size={17} className="text-ocean-700" />
+                <div className="w-10 h-10 bg-brand-50 border border-ink/[0.08] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Icon size={17} className="text-brand-700" />
                 </div>
                 <div>
                   <h4 className="text-[0.85rem] font-semibold text-ink mb-0.5">{title}</h4>
@@ -69,35 +92,43 @@ export default function Contact() {
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <Card padding="p-9" className="rounded-2xl">
+          <Card padding="p-9">
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <h3 className="font-display font-bold text-[1.15rem] text-ink mb-1">
                 Send a message
               </h3>
 
               <div className="grid grid-cols-2 gap-4">
-                <Input label="First Name" placeholder="Amal" />
-                <Input label="Last Name" placeholder="Perera" />
+                <Input name="firstName" label="First Name" placeholder="Amal" required />
+                <Input name="lastName" label="Last Name" placeholder="Perera" required />
               </div>
 
-              <Input label="Email" type="email" placeholder="amal@university.edu" />
-              <Input label="Institution" placeholder="University of Colombo" />
+              <Input name="email" label="Email" type="email" placeholder="amal@university.edu" required />
+              <Input name="institution" label="Institution" placeholder="University of Colombo" />
 
-              <Select label="Enquiry Type" defaultValue="General Enquiry">
-                <option>General Enquiry</option>
-                <option>Request a Demo</option>
-                <option>Pricing &amp; Plans</option>
-                <option>Technical Support</option>
-                <option>Partnership</option>
+              <Select name="enquiryType" label="Enquiry Type" defaultValue="GENERAL">
+                <option value="GENERAL">General Enquiry</option>
+                <option value="DEMO">Request a Demo</option>
+                <option value="PRICING">Pricing & Plans</option>
+                <option value="SUPPORT">Technical Support</option>
+                <option value="PARTNERSHIP">Partnership</option>
               </Select>
 
-              <Textarea label="Message" rows={4} placeholder="Tell us about your institution's needs…" />
+              <Textarea name="message" label="Message" rows={4} placeholder="Tell us about your institution's needs…" required />
 
-              <Button type="submit" variant="ocean" size="lg" className="w-full mt-1">
+              {error && (
+                <p className="flex items-center gap-1.5 text-sm text-danger">
+                  <AlertCircle size={14} /> {error}
+                </p>
+              )}
+
+              <Button type="submit" variant="brand" size="lg" className="w-full mt-1" disabled={sending}>
                 {submitted ? (
                   <span className="flex items-center gap-2"><Check size={16} /> Message sent!</span>
                 ) : (
-                  <span className="flex items-center gap-2">Send message <Send size={15} /></span>
+                  <span className="flex items-center gap-2">
+                    {sending ? "Sending…" : "Send message"} {!sending && <Send size={15} />}
+                  </span>
                 )}
               </Button>
             </form>
