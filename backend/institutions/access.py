@@ -119,6 +119,37 @@ def institution_member_user_ids(institution_ids):
     return list(ids)
 
 
+def student_access_block(user):
+    """
+    For STUDENT-role users, returns a human-readable reason they should be
+    denied use of the app (unverified email, awaiting institution approval,
+    rejected), or None if they're clear to proceed.
+
+    A student now gets a session immediately after verifying their signup
+    OTP (see students/services.py::verify_student_otp / StudentVerifyOtpView)
+    — before their institution has approved them — so the approval gate
+    can no longer live solely in auth.views.login_view (that only runs on
+    password login, not on every token-authenticated request). This helper
+    is reused by login_view AND institutions.views.JWTView.dispatch, so a
+    pending/rejected student's existing token gets the same block on every
+    subsequent API call, not just at login time.
+    """
+    if user.role.name.upper() != 'STUDENT':
+        return None
+
+    if not user.is_email_verified:
+        return 'Please verify your email before continuing.'
+
+    student = getattr(user, 'student_profile', None)
+    if student is not None:
+        if student.status == 'PENDING':
+            return 'Your account is awaiting approval from your institution.'
+        if student.status == 'REJECTED':
+            return 'Your registration was rejected by your institution. Contact them for details.'
+
+    return None
+
+
 def is_institution_allowed(user, institution_id):
     """Can this user create/modify records belonging to institution_id?"""
     if institution_id is None:
@@ -133,3 +164,26 @@ def is_institution_allowed(user, institution_id):
         return int(institution_id) in owned_institution_ids(user)
 
     return resolve_institution_id(user) == int(institution_id)
+
+
+WRITE_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
+# Must stay reachable while impersonating — it's how you exit.
+IMPERSONATION_WRITE_EXEMPT_PATHS = {'/api/institutions/impersonate/stop/'}
+
+
+def impersonation_write_block(payload, request):
+    """
+    SUPER_ADMIN "view as" (institutions/views.py::ImpersonateStartView) is
+    read-only by design: the access token carries an `impersonated_by`
+    claim, and any write attempt while it's present gets rejected here.
+    Called from both JWTView.dispatch and the jwt_required decorator, since
+    this codebase has two parallel auth entry points. Returns a rejection
+    reason string, or None if the request may proceed.
+    """
+    if not payload.get('impersonated_by'):
+        return None
+    if request.method not in WRITE_METHODS:
+        return None
+    if request.path in IMPERSONATION_WRITE_EXEMPT_PATHS:
+        return None
+    return 'Read-only while impersonating another user.'

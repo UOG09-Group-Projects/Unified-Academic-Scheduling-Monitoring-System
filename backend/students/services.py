@@ -1,4 +1,4 @@
-import uuid
+import datetime
 from django.db import transaction
 from institutions.models import Student, Guardian, StudentGuardian
 from institutions.models import User
@@ -6,32 +6,60 @@ from institutions.models import ActivityLog
 from institutions.models import Role
 from institutions.models import Institution
 from institutions.notification_service import NotificationService
+from institutions.access import is_institution_allowed
+from institutions.email_utils import send_otp_email, OTP_RESEND_SECONDS
 
 class StudentService:
+
+    @staticmethod
+    def _next_registration_no(institution):
+        """
+        <SHORT_NAME>-0001, incrementing per institution (e.g. "SLIIT-0007").
+        Called with the institution row already locked by the caller
+        (select_for_update), so the count-then-check below can't race with
+        another concurrent signup at the same institution.
+        """
+        prefix = institution.short_name
+        seq = Student.objects.filter(institution=institution).count() + 1
+        registration_no = f"{prefix}-{seq:04d}"
+        while Student.objects.filter(registration_no=registration_no).exists():
+            seq += 1
+            registration_no = f"{prefix}-{seq:04d}"
+        return registration_no
 
     @staticmethod
     @transaction.atomic
     def register_student(data):
         """
         Self-service signup: a prospective student creates their own login
-        account and picks which institution to enroll in. No batch yet —
-        a manager assigns one later from that institution's batch list.
+        account, proving institution membership with a join code (issued by
+        that institution's OWNER/MANAGER) instead of freely picking from a
+        list. The account can't log in yet — it must clear email OTP
+        verification (see verify_student_otp) and then institution approval
+        (see approve_student) first. No batch yet either — a manager assigns
+        one after approval.
         """
-        name            = (data.get('name') or '').strip()
-        email           = (data.get('email') or '').strip().lower()
-        password        = data.get('password') or ''
-        institution_id  = data.get('institution_id')
+        name       = (data.get('name') or '').strip()
+        email      = (data.get('email') or '').strip().lower()
+        password   = data.get('password') or ''
+        join_code  = (data.get('join_code') or '').strip().upper()
 
-        if not all([name, email, password, institution_id]):
-            raise ValueError('name, email, password, and institution_id are all required.')
+        if not all([name, email, password, join_code]):
+            raise ValueError('name, email, password, and join_code are all required.')
 
         if len(password) < 8:
             raise ValueError('Password must be at least 8 characters.')
 
         try:
-            institution = Institution.objects.get(id=institution_id, is_deleted=False)
+            # Locks the institution row for the duration of this transaction
+            # so two concurrent signups against the same institution can't
+            # compute the same next sequence number (see
+            # _next_registration_no below).
+            institution = Institution.objects.select_for_update().get(
+                join_code=join_code, is_deleted=False
+            )
         except Institution.DoesNotExist:
-            raise ValueError('Selected institution does not exist.')
+            raise ValueError('Invalid institution join code.')
 
         if User.objects.filter(email=email).exists():
             raise ValueError('An account with this email already exists.')
@@ -44,14 +72,12 @@ class StudentService:
             email=email,
             role=student_role,
             is_active=True,
-            is_email_verified=True,
+            is_email_verified=False,
         )
         user.set_password(password)
         user.save()
 
-        registration_no = f"STU-{uuid.uuid4().hex[:10].upper()}"
-        while Student.objects.filter(registration_no=registration_no).exists():
-            registration_no = f"STU-{uuid.uuid4().hex[:10].upper()}"
+        registration_no = StudentService._next_registration_no(institution)
 
         student = Student.objects.create(
             name=name,
@@ -59,6 +85,7 @@ class StudentService:
             registration_no=registration_no,
             institution=institution,
             user=user,
+            status='PENDING',
         )
 
         ActivityLog.objects.create(
@@ -66,14 +93,163 @@ class StudentService:
             description=f"Student '{student.name}' self-registered at {institution.name}."
         )
 
-        NotificationService.notify_institution_staff(
-            institution.id,
-            title='Student needs approval',
-            message=f"'{student.name}' self-registered at {institution.name} and needs a batch assigned.",
-            link='/students',
-        )
+        send_otp_email(user)
 
         return student, user
+
+    @staticmethod
+    @transaction.atomic
+    def verify_student_otp(email, code):
+        email = (email or '').strip().lower()
+        code  = (code or '').strip()
+
+        try:
+            user = User.objects.select_related('role').get(email=email)
+        except User.DoesNotExist:
+            raise ValueError('No account found for this email.')
+
+        if user.is_email_verified:
+            raise ValueError('This email is already verified.')
+
+        # Configurable via the SUPER_ADMIN settings page — see
+        # institutions/models.py::PlatformSettings. OTP_MAX_ATTEMPTS (email_utils.py)
+        # is only the model default.
+        from institutions.models import PlatformSettings
+        max_attempts = PlatformSettings.load().otp_max_attempts
+
+        if user.otp_attempts >= max_attempts:
+            raise ValueError('Too many incorrect attempts. Please request a new code.')
+
+        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+        if not user.otp_code or not user.otp_expiry or now > user.otp_expiry:
+            raise ValueError('Code has expired. Please request a new one.')
+
+        if code != user.otp_code:
+            user.otp_attempts += 1
+            user.save(update_fields=['otp_attempts'])
+            remaining = max_attempts - user.otp_attempts
+            raise ValueError(f'Incorrect code. {max(remaining, 0)} attempt(s) remaining.')
+
+        user.is_email_verified = True
+        user.otp_code     = None
+        user.otp_expiry   = None
+        user.otp_sent_at  = None
+        user.otp_attempts = 0
+        user.save()
+
+        try:
+            student = user.student_profile
+        except Student.DoesNotExist:
+            student = None
+
+        if student and student.institution_id:
+            NotificationService.notify_institution_staff(
+                student.institution_id,
+                title='Student awaiting approval',
+                message=f"'{student.name}' verified their email and is awaiting approval to join {student.institution.name}.",
+                link='/students',
+            )
+
+        return user
+
+    @staticmethod
+    def resend_student_otp(email):
+        email = (email or '').strip().lower()
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise ValueError('No account found for this email.')
+
+        if user.is_email_verified:
+            raise ValueError('This email is already verified.')
+
+        if user.otp_sent_at:
+            now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+            elapsed = (now - user.otp_sent_at).total_seconds()
+            if elapsed < OTP_RESEND_SECONDS:
+                wait = int(OTP_RESEND_SECONDS - elapsed)
+                raise ValueError(f'Please wait {wait}s before requesting another code.')
+
+        send_otp_email(user)
+
+    @staticmethod
+    @transaction.atomic
+    def approve_student(student_id, actor, batch_id=None):
+        """
+        batch_id is optional — a manager can assign the batch right here
+        while approving, or leave it for later via the regular student edit
+        form (StudentDetailView). Either way, approval doesn't require one.
+        """
+        try:
+            student = Student.objects.select_related('user', 'institution').get(
+                id=student_id, is_deleted=False
+            )
+        except Student.DoesNotExist:
+            raise ValueError('Student not found.')
+
+        if not is_institution_allowed(actor, student.institution_id):
+            raise ValueError('You cannot approve students for this institution.')
+
+        update_fields = ['status']
+        student.status = 'APPROVED'
+
+        if batch_id:
+            from institutions.models import Batch
+            try:
+                batch = Batch.objects.get(id=batch_id)
+            except Batch.DoesNotExist:
+                raise ValueError('Batch not found.')
+            if batch.institution_id != student.institution_id:
+                raise ValueError('That batch belongs to a different institution.')
+            student.batch = batch
+            update_fields.append('batch')
+
+        student.save(update_fields=update_fields)
+
+        if student.user:
+            NotificationService.notify(
+                student.user,
+                title='Account approved',
+                message=f"Your account has been approved by {student.institution.name}. You can now log in.",
+                link='/login',
+            )
+
+        ActivityLog.objects.create(
+            actor=actor, module='STUDENT', action='UPDATE',
+            description=f"Student '{student.name}' was approved."
+        )
+
+        return student
+
+    @staticmethod
+    @transaction.atomic
+    def reject_student(student_id, actor):
+        try:
+            student = Student.objects.select_related('user', 'institution').get(
+                id=student_id, is_deleted=False
+            )
+        except Student.DoesNotExist:
+            raise ValueError('Student not found.')
+
+        if not is_institution_allowed(actor, student.institution_id):
+            raise ValueError('You cannot reject students for this institution.')
+
+        student.status = 'REJECTED'
+        student.save(update_fields=['status'])
+
+        if student.user:
+            NotificationService.notify(
+                student.user,
+                title='Account rejected',
+                message=f"Your registration with {student.institution.name} was rejected. Contact them for details.",
+            )
+
+        ActivityLog.objects.create(
+            actor=actor, module='STUDENT', action='UPDATE',
+            description=f"Student '{student.name}' was rejected."
+        )
+
+        return student
 
     @staticmethod
     def list_guardians_for_student(student):
@@ -142,7 +318,7 @@ class StudentService:
 
     @staticmethod
     @transaction.atomic
-    def create_student(data, guardian_ids=None):
+    def create_student(data, guardian_ids=None, notify=True):
         # Validate unique registration_no
         if Student.objects.filter(
             registration_no=data.get('registration_no'),
@@ -159,6 +335,17 @@ class StudentService:
         ).exists():
             raise ValueError(
                 f"A student with email '{data.get('email')}' already exists."
+            )
+
+        # The login account's email/username must also be globally unique
+        # (User.email has a DB-level unique constraint) — without this
+        # check, an email that collides with some other, non-student
+        # account (e.g. a manager who happens to share it) would pass the
+        # check above and then blow up with an uncaught IntegrityError on
+        # user.save() below instead of a clean, catchable error.
+        if User.objects.filter(email=data.get('email')).exists():
+            raise ValueError(
+                f"An account with email '{data.get('email')}' already exists."
             )
 
         # Create login user account for the student
@@ -206,12 +393,13 @@ class StudentService:
             description=f"Student '{student.name}' was registered."
         )
 
-        NotificationService.notify_institution_staff(
-            institution_id,
-            title='Student added',
-            message=f"'{student.name}' was added as a student.",
-            link='/students',
-        )
+        if notify:
+            NotificationService.notify_institution_staff(
+                institution_id,
+                title='Student added',
+                message=f"'{student.name}' was added as a student.",
+                link='/students',
+            )
 
         return student
 

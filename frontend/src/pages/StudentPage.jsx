@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, GraduationCap, Layers3 } from 'lucide-react';
+import { Plus, GraduationCap, Layers3, UploadCloud } from 'lucide-react';
 import StudentForm from "../components/StudentForm";
 import StudentTable from '../components/StudentTable';
 import ViewStudentModal from '../components/ViewStudentModal';
+import CsvImportModal from '../components/CsvImportModal';
 import studentService from "../services/studentService";
 import batchService from '../services/batchService';
+import { getAllInstitutions } from '../services/institutionService';
 import PageHeader from '../components/ui/PageHeader';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
+import { Select } from '../components/ui/Field';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StatCard from '../components/StatCard';
@@ -19,13 +22,19 @@ const StudentPage = () => {
   const { can } = usePermissions();
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [institutions, setInstitutions] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [pendingStudents, setPendingStudents] = useState([]);
+  const [pendingActionId, setPendingActionId] = useState(null);
+  const [pendingBatchChoice, setPendingBatchChoice] = useState({});
 
   const [formOpen, setFormOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [viewStudent, setViewStudent] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const toast = useToast();
 
   const fetchBatches = async () => {
@@ -34,6 +43,15 @@ const StudentPage = () => {
       setBatches(data);
     } catch (err) {
       console.error('Batch fetch error:', err);
+    }
+  };
+
+  const fetchInstitutions = async () => {
+    try {
+      const data = await getAllInstitutions();
+      setInstitutions(data);
+    } catch (err) {
+      console.error('Institution fetch error:', err);
     }
   };
 
@@ -49,10 +67,54 @@ const StudentPage = () => {
     }
   };
 
+  const fetchPending = async () => {
+    try {
+      const data = await studentService.listPending();
+      setPendingStudents(data);
+    } catch {
+      // OWNER/MANAGER-only endpoint — silently skip for other roles.
+      setPendingStudents([]);
+    }
+  };
+
   useEffect(() => {
     fetchBatches();
+    fetchInstitutions();
     fetchStudents();
+    fetchPending();
   }, []);
+
+  const handleApprove = async (student) => {
+    setPendingActionId(student.id);
+    try {
+      await studentService.approve(student.id, pendingBatchChoice[student.id] || null);
+      toast.success(`${student.name} approved.`);
+      setPendingBatchChoice((prev) => {
+        const next = { ...prev };
+        delete next[student.id];
+        return next;
+      });
+      fetchPending();
+      fetchStudents();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Approval failed');
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
+  const handleReject = async (student) => {
+    setPendingActionId(student.id);
+    try {
+      await studentService.reject(student.id);
+      toast.success(`${student.name} rejected.`);
+      fetchPending();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Rejection failed');
+    } finally {
+      setPendingActionId(null);
+    }
+  };
 
   const stats = useMemo(() => {
     const batchIds = new Set(students.map((s) => s.batch_name).filter(Boolean));
@@ -128,9 +190,14 @@ const StudentPage = () => {
           title="Student management"
           subtitle="Enrolled students and their guardians"
           actions={can('create_student') && (
-            <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
-              Add student
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="md" icon={UploadCloud} onClick={() => setImportOpen(true)}>
+                Import CSV
+              </Button>
+              <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
+                Add student
+              </Button>
+            </div>
           )}
         />
 
@@ -138,6 +205,56 @@ const StudentPage = () => {
           <StatCard label="Total students" value={stats.total} tone="brand" icon={GraduationCap} />
           <StatCard label="Batches covered" value={stats.batches} tone="ocean" icon={Layers3} />
         </div>
+
+        {pendingStudents.length > 0 && (
+          <Card padding="p-0" className="overflow-hidden">
+            <div className="px-6 py-4 border-b border-ink/[0.06]">
+              <p className="text-xs font-semibold tracking-widest text-ink-faint uppercase">
+                Pending approval ({pendingStudents.length})
+              </p>
+            </div>
+            <div className="divide-y divide-ink/[0.06]">
+              {pendingStudents.map((student) => (
+                <div key={student.id} className="flex items-center justify-between px-6 py-3 gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{student.name}</p>
+                    <p className="text-xs text-ink-faint truncate">{student.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Select
+                      wrapperClassName="w-44"
+                      value={pendingBatchChoice[student.id] || ''}
+                      onChange={(e) =>
+                        setPendingBatchChoice((prev) => ({ ...prev, [student.id]: e.target.value }))
+                      }
+                    >
+                      <option value="">No batch yet</option>
+                      {batches.map((batch) => (
+                        <option key={batch.id} value={batch.id}>{batch.name}</option>
+                      ))}
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={pendingActionId === student.id}
+                      onClick={() => handleReject(student)}
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      variant="brand"
+                      size="sm"
+                      disabled={pendingActionId === student.id}
+                      onClick={() => handleApprove(student)}
+                    >
+                      Approve
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <Card padding="p-0" className="overflow-hidden">
           <div className="px-6 py-4 border-b border-ink/[0.06]">
@@ -174,6 +291,20 @@ const StudentPage = () => {
       </Modal>
 
       <ViewStudentModal student={viewStudent} onClose={() => setViewStudent(null)} />
+
+      <CsvImportModal
+        open={importOpen}
+        onClose={() => { setImportOpen(false); fetchStudents(); fetchPending(); }}
+        title="Import students"
+        helpText="Columns: name, email, phone (optional), registration_no (optional — auto-assigned if left blank)."
+        templateHeaders={['name', 'email', 'phone', 'registration_no']}
+        institutions={institutions}
+        showBatchSelect
+        batches={batches}
+        onSubmit={(file, { institutionId, batchId }) =>
+          studentService.bulkImport(file, { institutionId, batchId })
+        }
+      />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

@@ -12,19 +12,25 @@ class ComplaintSubmitterSerializer(serializers.Serializer):
 class ComplaintSerializer(serializers.ModelSerializer):
     submitted_by = ComplaintSubmitterSerializer()
     replied_by   = serializers.SerializerMethodField()
+    student      = serializers.SerializerMethodField()
 
     class Meta:
         model  = Complaint
         fields = [
             'id', 'type', 'subject', 'message', 'status',
             'reply', 'replied_at', 'replied_by',
-            'submitted_by', 'created_at', 'updated_at',
+            'submitted_by', 'student', 'created_at', 'updated_at',
         ]
 
     def get_replied_by(self, obj):
         if not obj.replied_by:
             return None
         return {'id': obj.replied_by.id, 'username': obj.replied_by.username}
+
+    def get_student(self, obj):
+        if not obj.student_id:
+            return None
+        return {'id': obj.student.id, 'name': obj.student.name}
 
 
 class ContactInquirySerializer(serializers.ModelSerializer):

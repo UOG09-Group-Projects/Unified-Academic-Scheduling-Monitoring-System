@@ -5,6 +5,7 @@ import { getStoredUser } from '../services/authStorage';
 import notificationService from '../services/notificationService';
 import usePolling from '../hooks/usePolling';
 import { useTheme } from '../hooks/useTheme';
+import { usePermissions } from '../auth/PermissionsContext';
 
 const POLL_MS = 10000;
 
@@ -47,6 +48,7 @@ export default function Topbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { isImpersonating } = usePermissions();
   const user = getStoredUser() ?? {};
 
   const [unreadCount, setUnreadCount] = useState(0);
@@ -60,7 +62,10 @@ export default function Topbar() {
     }
   }, []);
 
-  usePolling(fetchUnreadCount, POLL_MS);
+  // The target's real notification count is per-user data fetched
+  // independently of routing — the DashboardLayout content swap doesn't
+  // cover it, so it's paused here directly while impersonating.
+  usePolling(fetchUnreadCount, POLL_MS, isImpersonating);
 
   function goToProfile() {
     navigate(user.role === 'SUPER_ADMIN' ? '/superadmin/profile' : '/profile');
@@ -90,7 +95,7 @@ export default function Topbar() {
           aria-label="Notifications"
         >
           <Bell size={17} />
-          {unreadCount > 0 && (
+          {!isImpersonating && unreadCount > 0 && (
             <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-danger text-white text-[9px] font-semibold flex items-center justify-center">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>

@@ -87,12 +87,34 @@ def _build_payload(user, token_type: str, expiry: datetime.timedelta) -> dict:
 
 
 def generate_access_token(user) -> str:
-    payload = _build_payload(user, "access", ACCESS_TOKEN_EXPIRY)
+    # Session timeout is configurable via the SUPER_ADMIN settings page (see
+    # institutions/models.py::PlatformSettings) — ACCESS_TOKEN_EXPIRY above
+    # is only the fallback for wherever a fixed timedelta is still needed
+    # (e.g. REFRESH_TOKEN_EXPIRY, which stays fixed).
+    from .models import PlatformSettings
+    minutes = PlatformSettings.load().session_timeout_minutes
+    expiry = datetime.timedelta(minutes=minutes)
+    payload = _build_payload(user, "access", expiry)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def generate_refresh_token(user) -> str:
     payload = _build_payload(user, "refresh", REFRESH_TOKEN_EXPIRY)
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def generate_impersonation_token(admin_user, target_user, minutes: int = 30) -> str:
+    """
+    An access token for `target_user` (so every existing read path resolves
+    role/institution/permissions as if the caller genuinely were that user —
+    see institutions/views.py::ImpersonateStartView), with one extra claim
+    identifying who's actually driving. No refresh token is issued for
+    impersonation — it must not be silently renewable past its fixed window.
+    Read-only enforcement lives in institutions/access.py::impersonation_write_block,
+    checked from both JWTView.dispatch and jwt_required below.
+    """
+    payload = _build_payload(target_user, "access", datetime.timedelta(minutes=minutes))
+    payload["impersonated_by"] = admin_user.id
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -140,6 +162,11 @@ def jwt_required(roles: list[str] | None = None):
             if payload.get('token_type') != 'access':
                 return JsonResponse({'error': 'Invalid token type'}, status=401)
 
+            from institutions.access import impersonation_write_block
+            block_reason = impersonation_write_block(payload, request)
+            if block_reason:
+                return JsonResponse({'error': block_reason}, status=403)
+
             if roles:
                 user_role = payload.get('role', '').upper()
                 allowed   = [r.upper() for r in roles]
@@ -153,6 +180,7 @@ def jwt_required(roles: list[str] | None = None):
 
             # Inject institution_id from JWT so services can read it
             user.institution_id = payload.get('institution_id')
+            user.impersonated_by = payload.get('impersonated_by')
 
             from institutions.access import load_permissions
             user.permissions = load_permissions(user)

@@ -1,30 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Pencil, Lock, CalendarDays, AlertTriangle } from 'lucide-react';
 import calendarService from '../../services/calendarService';
+import activityService from '../../services/activityService';
 import usePolling from '../../hooks/usePolling';
+import useLiveSocket from '../../hooks/useLiveSocket';
 import { useToast } from '../ui/Toast';
-import { usePermissions } from '../../auth/PermissionsContext';
 import { findOverlaps } from '../../utils/eventConflicts';
+import { activitiesToPseudoEvents } from '../../utils/activityEvents';
 import Button from '../ui/Button';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import EmptyState from '../ui/EmptyState';
 import EventFormModal from './EventFormModal';
+import { TYPE_COLOR } from './eventTypeColors';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
-
-const TYPE_COLOR = {
-  class:      '#3B82F6',
-  assignment: '#F59E0B',
-  exam:       '#EF4444',
-  holiday:    '#22C55E',
-  meeting:    '#A78BFA',
-  personal:   '#64748B',
-};
 
 const POLL_MS = 9000;
 
@@ -36,6 +31,7 @@ export default function EventCalendar({ role }) {
   const [selDay, setSelDay] = useState(now.getDate());
 
   const [events, setEvents] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState([]);
 
@@ -47,7 +43,7 @@ export default function EventCalendar({ role }) {
   const [deleting, setDeleting] = useState(false);
 
   const toast = useToast();
-  const { user } = usePermissions();
+  const navigate = useNavigate();
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -60,8 +56,22 @@ export default function EventCalendar({ role }) {
     }
   }, [year, month]);
 
+  const fetchActivities = useCallback(async () => {
+    try {
+      setActivities(await activityService.listMine());
+    } catch {
+      // non-critical — the calendar still works with just Events
+    }
+  }, []);
+
   useEffect(() => { setLoading(true); }, [year, month]);
   usePolling(fetchEvents, POLL_MS, modalOpen || Boolean(deleteTarget));
+  usePolling(fetchActivities, POLL_MS, modalOpen || Boolean(deleteTarget));
+
+  // Instant refetch the moment an educator adds/edits/deletes an event or
+  // activity anywhere in the institution — polling above is just the
+  // fallback if this socket can't connect.
+  useLiveSocket({ onEventsChanged: fetchEvents, onActivitiesChanged: fetchActivities });
 
   useEffect(() => {
     if (role === 'EDUCATOR') {
@@ -69,16 +79,24 @@ export default function EventCalendar({ role }) {
     }
   }, [role]);
 
+  const mergedEvents = useMemo(() => {
+    const monthActivities = activitiesToPseudoEvents(activities).filter((a) => {
+      const d = new Date(a.start);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+    return [...events, ...monthActivities];
+  }, [events, activities, year, month]);
+
   const byDate = useMemo(() => {
     const map = {};
-    for (const ev of events) {
+    for (const ev of mergedEvents) {
       const d = new Date(ev.start).getDate();
       (map[d] ||= []).push(ev);
     }
     return map;
-  }, [events]);
+  }, [mergedEvents]);
 
-  const conflictIds = useMemo(() => findOverlaps(events).conflictIds, [events]);
+  const conflictIds = useMemo(() => findOverlaps(mergedEvents).conflictIds, [mergedEvents]);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
@@ -110,6 +128,16 @@ export default function EventCalendar({ role }) {
     setEditingEvent(ev);
     setDefaultDate(null);
     setModalOpen(true);
+  };
+
+  // Activities are a separate model managed on their own pages — clicking one
+  // here goes to that page rather than opening the (Event-only) edit form.
+  const handleEventClick = (ev) => {
+    if (ev.is_activity) {
+      navigate(role === 'EDUCATOR' ? '/educator/activities' : '/my-courses');
+      return;
+    }
+    openEdit(ev);
   };
 
   const handleSubmit = async (payload) => {
@@ -280,15 +308,14 @@ export default function EventCalendar({ role }) {
               ) : (
                 <div className="flex flex-col gap-2">
                   {selEvents.map((ev) => {
-                    const isOthersPersonal = !ev.course && ev.created_by?.id !== user?.id;
-                    const label = isOthersPersonal
-                      ? `Personal — ${ev.created_by?.name}`
-                      : ev.course?.name || 'Personal';
+                    // Personal events never reveal whose they are, even to
+                    // an educator who can otherwise see them for conflict-checking.
+                    const label = ev.course?.name || 'Personal';
 
                     return (
                     <button
                       key={ev.id}
-                      onClick={() => openEdit(ev)}
+                      onClick={() => handleEventClick(ev)}
                       className={`flex items-center gap-3 p-3 rounded-xl text-left transition-colors hover:bg-ink/[0.03] border border-transparent hover:border-ink/[0.06] group
                         ${conflictIds.has(ev.id) ? 'border-danger/30 bg-red-50/40 dark:bg-red-500/10' : ''}`}
                     >

@@ -1,9 +1,23 @@
+import random
+import string
 from django.db import transaction
+from django.db.models import Q
 from .models import Institution, User
 from .serializers import InstitutionCreateSerializer, InstitutionUpdateSerializer
 from .models import ActivityLog
 from .models import Institution, User, Role
 from .notification_service import NotificationService
+from .access import is_institution_allowed
+
+
+def _generate_join_code() -> str:
+    """8-char uppercase alphanumeric code, unique among institutions."""
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code = ''.join(random.choices(alphabet, k=8))
+        if not Institution.objects.filter(join_code=code).exists():
+            return code
+
 
 class InstitutionService:
 
@@ -39,6 +53,7 @@ class InstitutionService:
             owner=user,
             logo=logo,
             status=status,
+            join_code=_generate_join_code(),
         )
 
         ActivityLog.objects.create(
@@ -81,6 +96,19 @@ class InstitutionService:
                 link='/dashboard/owner',
             )
 
+        return institution
+
+    @staticmethod
+    @transaction.atomic
+    def regenerate_join_code(institution: Institution, actor=None) -> Institution:
+        institution.join_code = _generate_join_code()
+        institution.save(update_fields=['join_code'])
+
+        ActivityLog.objects.create(
+            actor=actor,
+            module='INSTITUTION', action='UPDATE',
+            description=f"Institution '{institution.name}' join code was regenerated."
+        )
         return institution
 
     @staticmethod
@@ -148,3 +176,93 @@ class InstitutionService:
         module='INSTITUTION', action='DELETE',
         description=f"Institution '{institution.name}' was deleted."
     )
+
+
+class AnnouncementService:
+    """
+    OWNER/MANAGER broadcast tool: institution-wide (no batch_id) or scoped
+    to one batch's students plus the educators teaching it. Delivery reuses
+    NotificationService.notify_many — recipients see it through the same
+    Notification bell / /notifications page every other notification
+    already uses, no separate inbox.
+    """
+
+    @staticmethod
+    @transaction.atomic
+    def create_announcement(actor, data: dict):
+        from .models import Announcement, Batch, Educator, Student
+
+        title = (data.get('title') or '').strip()
+        message = (data.get('message') or '').strip()
+        institution_id = data.get('institution_id')
+        batch_id = data.get('batch_id') or None
+
+        if not title or not message:
+            raise ValueError('Title and message are required.')
+        if not institution_id:
+            raise ValueError('institution_id is required.')
+        if not is_institution_allowed(actor, institution_id):
+            raise ValueError('You cannot send announcements for this institution.')
+
+        batch = None
+        if batch_id:
+            try:
+                batch = Batch.objects.get(id=batch_id)
+            except Batch.DoesNotExist:
+                raise ValueError('Batch not found.')
+            if str(batch.institution_id) != str(institution_id):
+                raise ValueError('That batch belongs to a different institution.')
+
+        announcement = Announcement.objects.create(
+            institution_id=institution_id, batch=batch,
+            title=title, message=message, created_by=actor,
+        )
+
+        students = Student.objects.filter(
+            institution_id=institution_id, is_deleted=False, status='APPROVED',
+        ).exclude(user=None)
+        educators = Educator.objects.filter(institution_id=institution_id).exclude(user=None)
+
+        if batch is not None:
+            students = students.filter(batch_id=batch.id)
+            educators = educators.filter(
+                allocations__course__course_batches__batch_id=batch.id
+            ).distinct()
+
+        recipient_users = list(User.objects.filter(
+            Q(id__in=students.values_list('user_id', flat=True)) |
+            Q(id__in=educators.values_list('user_id', flat=True))
+        ))
+
+        NotificationService.notify_many(
+            recipient_users,
+            title=f"Announcement: {title}",
+            message=message,
+            link='/notifications',
+        )
+
+        scope_desc = f"batch '{batch.name}'" if batch else 'the whole institution'
+        ActivityLog.objects.create(
+            actor=actor, module='ANNOUNCEMENT', action='CREATE',
+            description=(
+                f"Announcement '{title}' sent to {scope_desc} "
+                f"({len(recipient_users)} recipient(s))."
+            ),
+        )
+
+        return announcement, len(recipient_users)
+
+    @staticmethod
+    def delete_announcement(announcement_id, actor):
+        from .models import Announcement
+
+        try:
+            announcement = Announcement.objects.get(id=announcement_id)
+        except Announcement.DoesNotExist:
+            raise ValueError('Announcement not found.')
+
+        if not is_institution_allowed(actor, announcement.institution_id):
+            raise ValueError('You cannot delete this announcement.')
+
+        announcement.delete()
+        return True

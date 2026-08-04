@@ -76,3 +76,46 @@ export const setInstitutionStatus = async (id, status) => {
   if (!res.ok) throw new Error(JSON.stringify(data));
   return data;
 };
+
+export const getJoinCode = async () => {
+  const res = await fetch(`${BASE_URL}/join-code/`, {
+    credentials: 'include',
+    headers: { ...authHeader() },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
+};
+
+export const regenerateJoinCode = async () => {
+  const res = await fetch(`${BASE_URL}/join-code/`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...authHeader() },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
+};
+
+export const getSemester = async () => {
+  const res = await fetch(`${BASE_URL}/semester/`, {
+    credentials: 'include',
+    headers: { ...authHeader() },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
+};
+
+export const updateSemester = async (semesterStart, semesterEnd) => {
+  const res = await fetch(`${BASE_URL}/semester/`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify({ semester_start: semesterStart, semester_end: semesterEnd }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
+};

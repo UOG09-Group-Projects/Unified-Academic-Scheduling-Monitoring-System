@@ -67,7 +67,7 @@ export default function Features() {
         transition={{ duration: 0.5 }}
         className="text-center mb-16"
       >
-        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-brand-700 mb-3">
+        <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
           What's inside
         </p>
         <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4">
@@ -88,7 +88,7 @@ export default function Features() {
       >
         {FEATURES.map(({ icon: Icon, tone, title, desc }) => (
           <motion.div key={title} variants={item}>
-            <Card hover padding="p-8" className="h-full group">
+            <Card hover padding="p-8" className="h-full group transition-colors hover:border-ocean-200/70 dark:hover:border-ocean-500/25">
               <div className={`w-12 h-12 ${tone} rounded-xl flex items-center justify-center mb-5 transition-transform duration-200 group-hover:scale-110`}>
                 <Icon size={22} />
               </div>

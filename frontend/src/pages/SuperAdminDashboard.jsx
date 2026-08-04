@@ -6,15 +6,18 @@ import dashboardService from "../services/dashboardService";
 import complaintService from "../services/complaintService";
 import usePolling from "../hooks/usePolling";
 import StatCard from "../components/StatCard";
+import StatGrid from "../components/ui/StatGrid";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import PageHeader from "../components/ui/PageHeader";
 import EmptyState from "../components/ui/EmptyState";
 import BarChartCard from "../components/charts/BarChartCard";
 import DonutChartCard from "../components/charts/DonutChartCard";
+import { useSeriesColor } from "../components/charts/useSeriesColor";
 import ActivityFeed from "../components/ActivityFeed";
 import { SkeletonRows } from "../components/ui/Skeleton";
 import ErrorState from "../components/ui/ErrorState";
+import { fadeUp } from "../utils/motionVariants";
 
 const MESSAGES_POLL_MS = 10000;
 
@@ -25,15 +28,8 @@ const TYPE_BADGE = {
 
 const TONES = ['ocean', 'success', 'violet', 'warning', 'danger', 'accent'];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
 export default function SuperAdminDashboard() {
+  const { color: SERIES_COLOR } = useSeriesColor();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -102,8 +98,8 @@ export default function SuperAdminDashboard() {
   const inactiveCount = (institutions ?? []).length - activeCount;
 
   const statusChart = [
-    { name: 'Active', value: activeCount, color: '#00A0F5' },
-    { name: 'Inactive', value: inactiveCount, color: '#CBD5E1' },
+    { name: 'Active', value: activeCount, color: SERIES_COLOR.ocean },
+    { name: 'Inactive', value: inactiveCount, color: SERIES_COLOR.neutral },
   ];
 
   const studentsPerInstitution = [...(institutions ?? [])]
@@ -124,20 +120,17 @@ export default function SuperAdminDashboard() {
     <div className="p-6 md:p-10 max-w-6xl mx-auto">
       <PageHeader title="Super admin dashboard" subtitle="System-wide overview across all institutions" />
 
-      <motion.div
-        variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10"
-      >
+      <StatGrid custom={0} className="mb-10">
         {stats.map((s, i) => (
           <StatCard key={s.label} {...s} tone={TONES[i]} />
         ))}
-      </motion.div>
+      </StatGrid>
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
         className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10"
       >
-        <BarChartCard title="Students per institution" icon={Users} data={studentsPerInstitution} color="#00A0F5" />
+        <BarChartCard title="Students per institution" icon={Users} data={studentsPerInstitution} color={SERIES_COLOR.ocean} />
         <DonutChartCard title="Institution status" data={statusChart} />
       </motion.div>
 

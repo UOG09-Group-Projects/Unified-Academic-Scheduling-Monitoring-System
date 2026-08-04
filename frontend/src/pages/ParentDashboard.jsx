@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Users, User, BookOpen, ClipboardList, Building2, FileText } from 'lucide-react';
 
 import StatCard from "../components/StatCard";
+import StatGrid from "../components/ui/StatGrid";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
@@ -12,20 +13,15 @@ import PageHeader from "../components/ui/PageHeader";
 import Tabs from "../components/ui/Tabs";
 import { SkeletonRows } from "../components/ui/Skeleton";
 import BarChartCard from "../components/charts/BarChartCard";
+import { useSeriesColor } from "../components/charts/useSeriesColor";
 import CourseActivityProgress from "../components/activities/CourseActivityProgress";
 import MonthlyReportModal from "../components/parent/MonthlyReportModal";
 import dashboardService from "../services/dashboardService";
 import progressService from "../services/progressService";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
+import { fadeUp } from "../utils/motionVariants";
 
 export default function ParentDashboard() {
+  const { color: SERIES_COLOR } = useSeriesColor();
   const [data, setData]               = useState(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
@@ -80,17 +76,18 @@ export default function ParentDashboard() {
   const child = children[activeChild] ?? null;
 
   const coursesPerChild = children.map((c) => ({ name: c.name, value: c.total_courses ?? 0 }));
+  const totalCoursesAcrossChildren = children.reduce((sum, c) => sum + (c.total_courses ?? 0), 0);
+  const totalEnrollmentsAcrossChildren = children.reduce((sum, c) => sum + (c.total_enrollments ?? 0), 0);
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
       <PageHeader title="Parent dashboard" subtitle={`Welcome, ${guardian?.name ?? ''}`} />
 
-      <motion.div
-        variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-6"
-      >
+      <StatGrid custom={0}>
         <StatCard label="Children" value={total_children} tone="brand" icon={Users} />
-      </motion.div>
+        <StatCard label="Courses across children" value={totalCoursesAcrossChildren} tone="ocean" icon={BookOpen} />
+        <StatCard label="Total enrollments" value={totalEnrollmentsAcrossChildren} tone="accent" icon={ClipboardList} />
+      </StatGrid>
 
       {!child ? (
         <Card>
@@ -111,7 +108,7 @@ export default function ParentDashboard() {
 
           {children.length > 1 && (
             <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1.5}>
-              <BarChartCard title="Courses per child" icon={BookOpen} data={coursesPerChild} color="#00A0F5" />
+              <BarChartCard title="Courses per child" icon={BookOpen} data={coursesPerChild} color={SERIES_COLOR.ocean} />
             </motion.div>
           )}
 

@@ -1,29 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import authService from '../auth/services/authService';
 import AuthShell from '../auth/AuthShell';
-import { Input, Select } from '../components/ui/Field';
+import { Input } from '../components/ui/Field';
 import Button from '../components/ui/Button';
-import { usePermissions } from '../auth/PermissionsContext';
 
 export default function StudentSignupPage() {
   const navigate = useNavigate();
-  const { setUser } = usePermissions();
 
-  const [institutions, setInstitutions] = useState([]);
-  const [institutionsError, setInstitutionsError] = useState(false);
   const [form, setForm] = useState({
-    name: '', email: '', password: '', confirmPassword: '', institutionId: '',
+    name: '', email: '', password: '', confirmPassword: '', joinCode: '',
   });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    authService.listPublicInstitutions()
-      .then(setInstitutions)
-      .catch(() => setInstitutionsError(true));
-  }, []);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -40,14 +30,13 @@ export default function StudentSignupPage() {
 
     setLoading(true);
     try {
-      const user = await authService.studentSignup({
+      await authService.studentSignup({
         name: form.name,
         email: form.email,
         password: form.password,
-        institutionId: form.institutionId,
+        joinCode: form.joinCode,
       });
-      setUser(user);
-      navigate('/dashboard/student');
+      navigate('/verify-otp', { state: { email: form.email } });
     } catch (err) {
       setError(
         err.response?.data?.error ||
@@ -60,7 +49,7 @@ export default function StudentSignupPage() {
   };
 
   return (
-    <AuthShell title="Create your student account" subtitle="Sign up and pick the institution you're enrolling in">
+    <AuthShell title="Create your student account" subtitle="Sign up with the join code from your institution">
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -6 }}
@@ -90,20 +79,16 @@ export default function StudentSignupPage() {
           placeholder="you@example.com"
           required
         />
-        <Select
-          label="Institution"
-          name="institutionId"
-          value={form.institutionId}
+        <Input
+          label="Institution join code"
+          type="text"
+          name="joinCode"
+          value={form.joinCode}
           onChange={handleChange}
+          placeholder="e.g. AB12CD34"
+          autoCapitalize="characters"
           required
-        >
-          <option value="" disabled>
-            {institutionsError ? 'Could not load institutions' : 'Select your institution'}
-          </option>
-          {institutions.map((inst) => (
-            <option key={inst.id} value={inst.id}>{inst.name}</option>
-          ))}
-        </Select>
+        />
         <Input
           label="Password"
           type="password"

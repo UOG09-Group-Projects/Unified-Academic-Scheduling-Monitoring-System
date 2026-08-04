@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, GraduationCap, Layers3 } from 'lucide-react';
+import { BookOpen, GraduationCap, Layers3, ArrowRight } from 'lucide-react';
 import StatCard from "../components/StatCard";
+import StatGrid from "../components/ui/StatGrid";
 import EventCalendar from "../components/calendar/EventCalendar";
 import WorkloadSummary from "../components/calendar/WorkloadSummary";
 import PageHeader from '../components/ui/PageHeader';
@@ -9,20 +11,15 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
 import BarChartCard from '../components/charts/BarChartCard';
+import { useSeriesColor } from '../components/charts/useSeriesColor';
 import EducatorCourseActivities from '../components/activities/EducatorCourseActivities';
 import { SkeletonRows } from '../components/ui/Skeleton';
 import ErrorState from '../components/ui/ErrorState';
 import dashboardService from "../services/dashboardService";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
+import { fadeUp } from '../utils/motionVariants';
 
 export default function EducatorDashboard() {
+  const { color: SERIES_COLOR } = useSeriesColor();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -69,10 +66,7 @@ export default function EducatorDashboard() {
     <div className="p-6 md:p-10 max-w-6xl mx-auto">
       <PageHeader title="Educator dashboard" subtitle="Your courses, batches and schedule" />
 
-      <motion.div
-        variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10"
-      >
+      <StatGrid custom={0} className="mb-10">
         <StatCard label="My Courses" value={data.summary.total_courses} tone="ocean" icon={BookOpen} />
         <StatCard label="My Batches" value={data.summary.total_batches} tone="success" icon={GraduationCap} />
         <StatCard
@@ -83,7 +77,7 @@ export default function EducatorDashboard() {
           progress={coverage}
           progressLabel={`${coursesWithBatches} of ${data.summary.total_courses} courses covered`}
         />
-      </motion.div>
+      </StatGrid>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mb-8 items-start">
         <div>
@@ -117,7 +111,7 @@ export default function EducatorDashboard() {
           </Card>
         </div>
 
-        <BarChartCard title="Batches per course" data={batchesPerCourse} color="#00A0F5" height={260} />
+        <BarChartCard title="Batches per course" data={batchesPerCourse} color={SERIES_COLOR.ocean} height={260} />
       </motion.div>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="mb-8">
@@ -126,7 +120,15 @@ export default function EducatorDashboard() {
       </motion.div>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3}>
-        <h2 className="text-sm font-semibold text-ink mb-3">Schedule</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-ink">Schedule</h2>
+          <Link
+            to="/calendar"
+            className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
+          >
+            Open full calendar <ArrowRight size={12} />
+          </Link>
+        </div>
         <EventCalendar role="EDUCATOR" />
       </motion.div>
     </div>

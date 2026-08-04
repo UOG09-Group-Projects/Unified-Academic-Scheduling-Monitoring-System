@@ -9,6 +9,11 @@ const VARIANTS = {
     'bg-brand-600 text-white hover:bg-brand-700 shadow-soft',
   ocean:
     'bg-ocean-gradient text-white hover:brightness-[1.08] shadow-soft',
+  // Solid (non-gradient) ocean blue — used by the marketing landing page,
+  // which wants the same blue family as the product's charts without the
+  // gradient treatment `ocean` above uses.
+  oceanSolid:
+    'bg-ocean-600 text-white hover:bg-ocean-700 shadow-ocean-glow',
   outline:
     'border border-ink/15 text-ink hover:border-ink/30 hover:bg-ink/[0.03] bg-transparent',
   ghost:

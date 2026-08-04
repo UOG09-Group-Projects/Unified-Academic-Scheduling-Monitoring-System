@@ -1,7 +1,7 @@
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
-from institutions.models import Complaint, ContactInquiry
+from institutions.models import Complaint, ContactInquiry, Guardian, StudentGuardian
 from institutions.notification_service import NotificationService
 
 TYPE_VALUES   = {c[0] for c in Complaint.TYPE_CHOICES}
@@ -22,7 +22,20 @@ class ComplaintService:
     @staticmethod
     def list_all(status=None, type=None):
         complaints = Complaint.objects.select_related(
-            'submitted_by', 'submitted_by__role', 'replied_by'
+            'submitted_by', 'submitted_by__role', 'replied_by', 'student'
+        )
+        if status:
+            complaints = complaints.filter(status=status.upper())
+        if type:
+            complaints = complaints.filter(type=type.upper())
+        return complaints
+
+    @staticmethod
+    def list_for_institution(institution_id, status=None, type=None):
+        """Parent-filed complaints/help requests routed to this institution
+        — what a MANAGER sees at /manager/complaints."""
+        complaints = Complaint.objects.filter(institution_id=institution_id).select_related(
+            'submitted_by', 'submitted_by__role', 'replied_by', 'student'
         )
         if status:
             complaints = complaints.filter(status=status.upper())
@@ -43,6 +56,19 @@ class ComplaintService:
         }
 
     @staticmethod
+    def stats_for_institution(institution_id):
+        counts = dict(
+            Complaint.objects.filter(institution_id=institution_id)
+            .values_list('status').annotate(count=Count('id'))
+        )
+        return {
+            'open':        counts.get('OPEN', 0),
+            'in_progress': counts.get('IN_PROGRESS', 0),
+            'resolved':    counts.get('RESOLVED', 0),
+            'total':       sum(counts.values()),
+        }
+
+    @staticmethod
     @transaction.atomic
     def create(data, user):
         complaint_type = (data.get('type') or 'HELP').upper()
@@ -54,18 +80,44 @@ class ComplaintService:
         if not subject or not message:
             raise ValueError("Subject and message are required.")
 
-        complaint = Complaint.objects.create(
+        complaint = Complaint(
             type=complaint_type,
             subject=subject,
             message=message,
             submitted_by=user,
         )
 
-        NotificationService.notify_super_admins(
-            title='New help request' if complaint_type == 'HELP' else 'New complaint',
-            message=f"{user.username}: {subject}",
-            link='/superadmin/messages',
-        )
+        if user.role.name.upper() == 'PARENT':
+            student_id = data.get('student_id')
+            if not student_id:
+                raise ValueError("Please select which child this concern is about.")
+            try:
+                guardian = Guardian.objects.get(user_id=user.id)
+            except Guardian.DoesNotExist:
+                raise ValueError("Guardian profile not found.")
+            link = StudentGuardian.objects.filter(
+                guardian=guardian, student_id=student_id
+            ).select_related('student').first()
+            if not link:
+                raise ValueError("You can only raise concerns about your own children.")
+            complaint.student = link.student
+            complaint.institution_id = link.student.institution_id
+
+        complaint.save()
+
+        if complaint.institution_id:
+            NotificationService.notify_institution_staff(
+                complaint.institution_id,
+                title='New help request' if complaint_type == 'HELP' else 'New complaint',
+                message=f"{user.username}: {subject}",
+                link='/manager/complaints',
+            )
+        else:
+            NotificationService.notify_super_admins(
+                title='New help request' if complaint_type == 'HELP' else 'New complaint',
+                message=f"{user.username}: {subject}",
+                link='/superadmin/messages',
+            )
 
         return complaint
 

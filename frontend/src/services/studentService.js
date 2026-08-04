@@ -59,6 +59,30 @@ const studentService = {
     const res = await client.post('/students/me/guardians/', payload);
     return res.data;
   },
+
+  listPending: async () => {
+    const res = await client.get('/students/pending/');
+    return res.data;
+  },
+
+  approve: async (id, batchId = null) => {
+    const res = await client.post(`/students/${id}/approve/`, batchId ? { batch_id: batchId } : {});
+    return res.data;
+  },
+
+  reject: async (id) => {
+    const res = await client.post(`/students/${id}/reject/`);
+    return res.data;
+  },
+
+  bulkImport: async (file, { institutionId, batchId } = {}) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (institutionId) fd.append('institution_id', institutionId);
+    if (batchId) fd.append('batch_id', batchId);
+    const res = await client.post('/students/bulk-import/', fd);
+    return res.data;
+  },
 };
 
 export default studentService;

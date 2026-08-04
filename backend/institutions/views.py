@@ -3,19 +3,23 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import JsonResponse as DjangoJsonResponse, HttpResponse
 from django.db import models
+from django.db.models.functions import TruncMonth, TruncDate
 from django.utils import timezone
+import calendar
 import csv
+import datetime
 import json
-from .models import Institution, User, ActivityLog, LoginActivity, StudentGuardian, Manager, Educator, Student, Guardian, Course, Batch
-from .serializers import InstitutionListSerializer, ActivityLogSerializer, LoginActivitySerializer
+from .models import Institution, User, ActivityLog, LoginActivity, StudentGuardian, Manager, Educator, Student, Guardian, Course, Batch, Complaint, Announcement
+from .serializers import InstitutionListSerializer, ActivityLogSerializer, LoginActivitySerializer, AnnouncementSerializer
 from managers.serializers import ManagerListSerializer
 from educators.serializers import EducatorSerializer
 from students.serializers import StudentListSerializer, GuardianSerializer
-from .services import InstitutionService
-from .jwt_utils import decode_token
+from .services import InstitutionService, AnnouncementService
+from .jwt_utils import decode_token, generate_impersonation_token
 from .access import (
     load_permissions, has_permission, resolve_institution_id, scoped_institution_filter,
     is_institution_allowed, owned_institution_ids, institution_member_user_ids,
+    student_access_block, impersonation_write_block,
 )
 import jwt
 
@@ -60,6 +64,10 @@ class JWTView(APIView):
         if payload.get('token_type') != 'access':
             return DjangoJsonResponse({'error': 'Invalid token type.'}, status=401)
 
+        block_reason = impersonation_write_block(payload, request)
+        if block_reason:
+            return DjangoJsonResponse({'error': block_reason}, status=403)
+
         if self.allowed_roles:
             user_role = payload.get('role', '').upper()
             allowed = [r.upper() for r in self.allowed_roles]
@@ -71,9 +79,14 @@ class JWTView(APIView):
         except User.DoesNotExist:
             return DjangoJsonResponse({'error': 'User not found.'}, status=401)
 
+        block_reason = student_access_block(user)
+        if block_reason:
+            return DjangoJsonResponse({'error': block_reason}, status=403)
+
         # Attach institution_id from JWT payload so services can read it
         # without an extra DB query
         user.institution_id = payload.get('institution_id')
+        user.impersonated_by = payload.get('impersonated_by')
         user.permissions = load_permissions(user)
 
         if self.permission_map:
@@ -110,6 +123,13 @@ class InstitutionRegisterView(APIView):
     """
 
     def post(self, request):
+        from .models import PlatformSettings
+        if not PlatformSettings.load().registration_open:
+            return Response(
+                {'error': 'Institution registration is currently closed.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
         logo = request.FILES.get('logo')
 
@@ -147,6 +167,278 @@ class InstitutionStatusView(JWTView):
 
         serializer = InstitutionListSerializer(updated, context={'request': request})
         return Response({'message': f'Institution {new_status.lower()}.', 'data': serializer.data})
+
+
+class InstitutionJoinCodeView(JWTView):
+    """
+    OWNER/MANAGER: view (GET) and regenerate (POST) the join code prospective
+    students enter at signup to prove they belong to this institution.
+    """
+    allowed_roles = ['OWNER', 'MANAGER']
+
+    def _institution(self, request):
+        role = request.current_user.role.name.upper()
+        if role == 'OWNER':
+            return request.current_user.owned_institutions.filter(is_deleted=False).order_by('-created_at').first()
+        institution_id = resolve_institution_id(request.current_user)
+        if not institution_id:
+            return None
+        return Institution.objects.filter(id=institution_id, is_deleted=False).first()
+
+    def get(self, request):
+        institution = self._institution(request)
+        if not institution:
+            return Response({'error': 'No institution found for this account.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'join_code': institution.join_code})
+
+    def post(self, request):
+        institution = self._institution(request)
+        if not institution:
+            return Response({'error': 'No institution found for this account.'}, status=status.HTTP_404_NOT_FOUND)
+        institution = InstitutionService.regenerate_join_code(institution, actor=request.current_user)
+        return Response({'join_code': institution.join_code})
+
+
+class InstitutionSemesterView(JWTView):
+    """
+    The semester date range TimetableSlot (weekday + time, no dates) gets
+    projected across on the calendar — see
+    frontend/src/utils/timetableEvents.js. GET is open to every role with a
+    stake in the calendar (they all need these dates to render it); PATCH
+    is OWNER/MANAGER only, checked inline rather than via allowed_roles
+    since that would restrict GET too.
+    """
+    allowed_roles = ['OWNER', 'MANAGER', 'EDUCATOR', 'STUDENT']
+
+    def _institution(self, request):
+        role = request.current_user.role.name.upper()
+        if role == 'OWNER':
+            return request.current_user.owned_institutions.filter(is_deleted=False).order_by('-created_at').first()
+        institution_id = resolve_institution_id(request.current_user)
+        if not institution_id:
+            return None
+        return Institution.objects.filter(id=institution_id, is_deleted=False).first()
+
+    def get(self, request):
+        institution = self._institution(request)
+        if not institution:
+            return Response({'error': 'No institution found for this account.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            'semester_start': institution.semester_start,
+            'semester_end':   institution.semester_end,
+        })
+
+    def patch(self, request):
+        if request.current_user.role.name.upper() not in ('OWNER', 'MANAGER'):
+            return Response(
+                {'error': 'Only managers can set the semester dates.'}, status=status.HTTP_403_FORBIDDEN
+            )
+        institution = self._institution(request)
+        if not institution:
+            return Response({'error': 'No institution found for this account.'}, status=status.HTTP_404_NOT_FOUND)
+
+        start = request.data.get('semester_start')
+        end   = request.data.get('semester_end')
+        if not start or not end:
+            return Response({'error': 'semester_start and semester_end are both required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if start >= end:
+            return Response({'error': 'semester_start must be before semester_end.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        institution.semester_start = start
+        institution.semester_end   = end
+        institution.save(update_fields=['semester_start', 'semester_end'])
+        return Response({
+            'semester_start': institution.semester_start,
+            'semester_end':   institution.semester_end,
+        })
+
+
+# ---------------------------------------------------------------------------
+# Platform settings (SUPER_ADMIN)
+# ---------------------------------------------------------------------------
+
+def _platform_settings_json(settings_obj):
+    return {
+        'platform_name':           settings_obj.platform_name,
+        'support_email':           settings_obj.support_email,
+        'registration_open':       settings_obj.registration_open,
+        'maintenance_mode':        settings_obj.maintenance_mode,
+        'session_timeout_minutes': settings_obj.session_timeout_minutes,
+        'otp_max_attempts':        settings_obj.otp_max_attempts,
+        'updated_at':              settings_obj.updated_at,
+        'updated_by':              settings_obj.updated_by.username if settings_obj.updated_by else None,
+    }
+
+
+class PlatformSettingsView(JWTView):
+    """SUPER_ADMIN: view/edit the platform-wide singleton settings row."""
+    allowed_roles = ['SUPER_ADMIN']
+
+    def get(self, request):
+        import sys
+        import django as django_module
+        from .models import PlatformSettings
+
+        settings_obj = PlatformSettings.load()
+        data = _platform_settings_json(settings_obj)
+        data['system_info'] = {
+            'django_version':     '.'.join(str(p) for p in django_module.VERSION[:3]),
+            'python_version':     sys.version.split()[0],
+            'total_institutions': Institution.objects.filter(is_deleted=False).count(),
+            'total_users':        User.objects.count(),
+        }
+        return Response(data)
+
+    def patch(self, request):
+        from .models import PlatformSettings
+
+        settings_obj = PlatformSettings.load()
+        data = request.data
+
+        if 'platform_name' in data:
+            name = (data.get('platform_name') or '').strip()
+            if not name:
+                return Response({'error': 'Platform name cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+            settings_obj.platform_name = name
+
+        if 'support_email' in data:
+            email = (data.get('support_email') or '').strip()
+            if email:
+                from django.core.validators import validate_email
+                from django.core.exceptions import ValidationError
+                try:
+                    validate_email(email)
+                except ValidationError:
+                    return Response({'error': 'Invalid support email.'}, status=status.HTTP_400_BAD_REQUEST)
+            settings_obj.support_email = email
+
+        if 'registration_open' in data:
+            settings_obj.registration_open = bool(data.get('registration_open'))
+
+        if 'maintenance_mode' in data:
+            settings_obj.maintenance_mode = bool(data.get('maintenance_mode'))
+
+        if 'session_timeout_minutes' in data:
+            try:
+                minutes = int(data.get('session_timeout_minutes'))
+            except (TypeError, ValueError):
+                return Response({'error': 'session_timeout_minutes must be a number.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not (5 <= minutes <= 1440):
+                return Response({'error': 'Session timeout must be between 5 and 1440 minutes.'}, status=status.HTTP_400_BAD_REQUEST)
+            settings_obj.session_timeout_minutes = minutes
+
+        if 'otp_max_attempts' in data:
+            try:
+                attempts = int(data.get('otp_max_attempts'))
+            except (TypeError, ValueError):
+                return Response({'error': 'otp_max_attempts must be a number.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not (3 <= attempts <= 10):
+                return Response({'error': 'Max OTP attempts must be between 3 and 10.'}, status=status.HTTP_400_BAD_REQUEST)
+            settings_obj.otp_max_attempts = attempts
+
+        settings_obj.updated_by = request.current_user
+        settings_obj.save()
+        return Response(_platform_settings_json(settings_obj))
+
+
+class PlatformSettingsResetView(JWTView):
+    """SUPER_ADMIN: reset platform settings back to model defaults."""
+    allowed_roles = ['SUPER_ADMIN']
+
+    def post(self, request):
+        from .models import PlatformSettings
+
+        PlatformSettings.objects.filter(pk=1).delete()
+        settings_obj = PlatformSettings.load()
+        return Response(_platform_settings_json(settings_obj))
+
+
+class PublicPlatformSettingsView(APIView):
+    """
+    Public, unauthenticated: the safe-to-expose subset — used by the
+    frontend's boot-time maintenance-mode check and the public site footer.
+    """
+
+    def get(self, request):
+        from .models import PlatformSettings
+
+        settings_obj = PlatformSettings.load()
+        return Response({
+            'platform_name':    settings_obj.platform_name,
+            'support_email':    settings_obj.support_email,
+            'maintenance_mode': settings_obj.maintenance_mode,
+        })
+
+
+# ---------------------------------------------------------------------------
+# Impersonation ("view as") — SUPER_ADMIN only, read-only, auto-expiring.
+# See institutions/jwt_utils.py::generate_impersonation_token and
+# institutions/access.py::impersonation_write_block for the enforcement.
+# ---------------------------------------------------------------------------
+
+IMPERSONATION_MINUTES = 30
+
+
+class ImpersonateStartView(JWTView):
+    allowed_roles = ['SUPER_ADMIN']
+
+    def post(self, request):
+        from auth.views import _user_json
+
+        email = (request.data.get('email') or '').strip().lower()
+        if not email:
+            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            target = User.objects.select_related('role').get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'No user found with that email.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if target.role.name.upper() == 'SUPER_ADMIN':
+            return Response({'error': 'Cannot impersonate another super admin.'}, status=status.HTTP_403_FORBIDDEN)
+        if not target.is_active:
+            return Response({'error': 'This account is deactivated.'}, status=status.HTTP_403_FORBIDDEN)
+
+        token = generate_impersonation_token(request.current_user, target, minutes=IMPERSONATION_MINUTES)
+        expires_at = timezone.now() + datetime.timedelta(minutes=IMPERSONATION_MINUTES)
+
+        ActivityLog.objects.create(
+            actor=request.current_user, module='AUTH', action='UPDATE',
+            description=f"{request.current_user.username} started impersonating {target.username}.",
+        )
+
+        data = _user_json(target)
+        data['impersonating'] = True
+        data['real_admin'] = {'id': request.current_user.id, 'username': request.current_user.username}
+
+        return Response({
+            'user': data,
+            'access': token,
+            'impersonation_expires_at': expires_at.isoformat(),
+        })
+
+
+class ImpersonateStopView(JWTView):
+    """
+    No allowed_roles restriction — while impersonating, the caller's token
+    presents as the *target's* role, not SUPER_ADMIN, so this has to be
+    reachable by any authenticated role (it no-ops harmlessly if
+    impersonated_by isn't set). Exempted from the write-block in
+    institutions/access.py — it's the only way to exit.
+    """
+
+    def post(self, request):
+        admin_id = getattr(request.current_user, 'impersonated_by', None)
+        if admin_id:
+            try:
+                admin = User.objects.get(pk=admin_id)
+                ActivityLog.objects.create(
+                    actor=admin, module='AUTH', action='UPDATE',
+                    description=f"{admin.username} stopped impersonating {request.current_user.username}.",
+                )
+            except User.DoesNotExist:
+                pass
+        return Response({'message': 'Impersonation ended.'})
 
 
 class InstitutionListCreateView(JWTView):
@@ -386,6 +678,80 @@ class LoginActivityListView(JWTView):
         return Response(serializer.data)
 
 
+# ---------------------------------------------------------------------------
+# Analytics trends (SUPER_ADMIN) — zero-filled time series for the
+# Analytics page's charts, feeding frontend/src/components/charts/LineChartCard.
+# ---------------------------------------------------------------------------
+
+def _monthly_series(queryset, date_field, months=12):
+    """[{name, value}] for each of the last `months` calendar months
+    (oldest first, including the current month) — buckets with no rows
+    still appear as 0 rather than being skipped, so the line reads as a
+    continuous trend."""
+    today = timezone.now().date()
+    start_year, start_month = today.year, today.month
+    for _ in range(months - 1):
+        start_month -= 1
+        if start_month == 0:
+            start_month = 12
+            start_year -= 1
+    start_date = datetime.date(start_year, start_month, 1)
+
+    counts = (
+        queryset.filter(**{f'{date_field}__date__gte': start_date})
+        .annotate(bucket=TruncMonth(date_field))
+        .values('bucket')
+        .annotate(count=models.Count('id'))
+    )
+    count_map = {c['bucket'].strftime('%Y-%m'): c['count'] for c in counts if c['bucket']}
+
+    result = []
+    y, m = start_year, start_month
+    for _ in range(months):
+        result.append({
+            'name':  f'{calendar.month_abbr[m]} {y}',
+            'value': count_map.get(f'{y:04d}-{m:02d}', 0),
+        })
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return result
+
+
+def _daily_series(queryset, date_field, days=30):
+    """[{name, value}] for each of the last `days` calendar days, zero-filled."""
+    today = timezone.now().date()
+    start_date = today - datetime.timedelta(days=days - 1)
+
+    counts = (
+        queryset.filter(**{f'{date_field}__date__gte': start_date})
+        .annotate(bucket=TruncDate(date_field))
+        .values('bucket')
+        .annotate(count=models.Count('id'))
+    )
+    count_map = {c['bucket'].isoformat(): c['count'] for c in counts if c['bucket']}
+
+    result = []
+    for i in range(days):
+        d = start_date + datetime.timedelta(days=i)
+        result.append({'name': d.strftime('%b %d'), 'value': count_map.get(d.isoformat(), 0)})
+    return result
+
+
+class AnalyticsTrendsView(JWTView):
+    """SUPER_ADMIN: platform-wide time-series trends for the Analytics page."""
+    allowed_roles = ['SUPER_ADMIN']
+
+    def get(self, request):
+        return Response({
+            'institutions_per_month': _monthly_series(Institution.objects.filter(is_deleted=False), 'created_at'),
+            'students_per_month':     _monthly_series(Student.objects.filter(is_deleted=False), 'created_at'),
+            'logins_per_day':         _daily_series(LoginActivity.objects.filter(action='LOGIN'), 'timestamp'),
+            'complaints_per_month':   _monthly_series(Complaint.objects.all(), 'created_at'),
+        })
+
+
 INSTITUTION_REPORT_HEADERS = [
     'Institution', 'Owner Name', 'Owner Email', 'Status',
     'Managers', 'Educators', 'Students', 'Parents', 'Courses', 'Created At',
@@ -579,3 +945,46 @@ class MaintenanceReportView(JWTView):
         filename = f"lightlearn-maintenance-report-{timezone.now().strftime('%Y%m%d-%H%M%S')}.{ext}"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+class AnnouncementListCreateView(JWTView):
+    """OWNER/MANAGER broadcast tool — see AnnouncementService for delivery."""
+    allowed_roles = ['OWNER', 'MANAGER']
+
+    def get(self, request):
+        announcements = Announcement.objects.select_related('batch', 'created_by').filter(
+            **scoped_institution_filter(request.current_user)
+        )
+        batch_id = request.query_params.get('batch_id')
+        if batch_id:
+            announcements = announcements.filter(batch_id=batch_id)
+        return Response(AnnouncementSerializer(announcements[:50], many=True).data)
+
+    def post(self, request):
+        try:
+            announcement, recipient_count = AnnouncementService.create_announcement(
+                request.current_user, request.data
+            )
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'message': f'Announcement sent to {recipient_count} recipient(s).',
+                'recipient_count': recipient_count,
+                'data': AnnouncementSerializer(announcement).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AnnouncementDetailView(JWTView):
+    """DELETE only — announcements are send-once, not edited."""
+    allowed_roles = ['OWNER', 'MANAGER']
+
+    def delete(self, request, pk):
+        try:
+            AnnouncementService.delete_announcement(pk, request.current_user)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Announcement deleted.'})

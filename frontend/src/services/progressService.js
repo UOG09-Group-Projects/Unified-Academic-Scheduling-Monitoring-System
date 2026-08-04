@@ -7,8 +7,8 @@ const progressService = {
   setProgress: (studentId, activityId, value) =>
     api.post('/progress/', { student_id: studentId, activity_id: activityId, value }).then((r) => r.data),
 
-  markComplete: (studentId, activityId, completed) =>
-    api.post('/progress/', { student_id: studentId, activity_id: activityId, completed }).then((r) => r.data),
+  setStatus: (studentId, activityId, status) =>
+    api.post('/progress/', { student_id: studentId, activity_id: activityId, status }).then((r) => r.data),
 };
 
 export default progressService;

@@ -1,5 +1,6 @@
 from institutions.views import JWTView
 from institutions.models import Complaint, ContactInquiry
+from institutions.access import resolve_institution_id
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -18,6 +19,13 @@ class ComplaintListCreateView(JWTView):
                 status=request.query_params.get('status'),
                 type=request.query_params.get('type'),
             )
+        elif role == 'MANAGER':
+            institution_id = resolve_institution_id(user)
+            complaints = ComplaintService.list_for_institution(
+                institution_id,
+                status=request.query_params.get('status'),
+                type=request.query_params.get('type'),
+            ) if institution_id else Complaint.objects.none()
         else:
             complaints = ComplaintService.list_for_user(user)
 
@@ -44,12 +52,12 @@ class ComplaintListCreateView(JWTView):
 
 
 class ComplaintDetailView(JWTView):
-    allowed_roles = ['SUPER_ADMIN']
+    allowed_roles = ['SUPER_ADMIN', 'MANAGER']
 
     def get_object(self, pk):
         try:
             return Complaint.objects.select_related(
-                'submitted_by', 'submitted_by__role', 'replied_by'
+                'submitted_by', 'submitted_by__role', 'replied_by', 'student'
             ).get(pk=pk)
         except Complaint.DoesNotExist:
             return None
@@ -58,8 +66,13 @@ class ComplaintDetailView(JWTView):
         complaint = self.get_object(pk)
         if not complaint:
             return Response({'error': 'Message not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user = request.current_user
+        if user.role.name.upper() == 'MANAGER' and complaint.institution_id != resolve_institution_id(user):
+            return Response({'error': 'You cannot respond to this message.'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
-            updated = ComplaintService.respond(complaint, request.data, request.current_user)
+            updated = ComplaintService.respond(complaint, request.data, user)
             serializer = ComplaintSerializer(updated)
             return Response({'message': 'Response sent.', 'data': serializer.data})
         except ValueError as e:
@@ -69,9 +82,15 @@ class ComplaintDetailView(JWTView):
 
 
 class ComplaintStatsView(JWTView):
-    allowed_roles = ['SUPER_ADMIN']
+    allowed_roles = ['SUPER_ADMIN', 'MANAGER']
 
     def get(self, request):
+        user = request.current_user
+        if user.role.name.upper() == 'MANAGER':
+            institution_id = resolve_institution_id(user)
+            if not institution_id:
+                return Response({'open': 0, 'in_progress': 0, 'resolved': 0, 'total': 0})
+            return Response(ComplaintService.stats_for_institution(institution_id))
         return Response(ComplaintService.stats())
 
 

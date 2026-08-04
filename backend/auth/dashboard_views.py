@@ -1,6 +1,6 @@
 import calendar
 import datetime
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db.models import Count
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -232,7 +232,10 @@ def student_dashboard(request):
     course_ids.update(Enrolment.objects.filter(student=student).values_list('course_id', flat=True))
     total_tasks = Activity.objects.filter(course_id__in=course_ids).count()
     completed_tasks = Progress.objects.filter(
-        student=student, completed=True, activity__course_id__in=course_ids
+        student=student, status='completed', activity__course_id__in=course_ids
+    ).count()
+    in_progress_tasks = Progress.objects.filter(
+        student=student, status='in_progress', activity__course_id__in=course_ids
     ).count()
 
     return JsonResponse({
@@ -250,6 +253,7 @@ def student_dashboard(request):
             'total_enrollments': len(enrollments),
             'total_tasks':       total_tasks,
             'completed_tasks':   completed_tasks,
+            'in_progress_tasks': in_progress_tasks,
         },
         'courses':     courses,
         'enrollments': enrollments,
@@ -328,8 +332,115 @@ def parent_dashboard(request):
 
 # ---------------------------------------------------------------------------
 # Parent monthly report
-# GET /api/dashboard/parent/report/?student_id=X&year=YYYY&month=MM
+# GET /api/dashboard/parent/report/?student_id=X&year=YYYY&month=MM[&format=pdf]
 # ---------------------------------------------------------------------------
+
+def _render_parent_report_pdf(report):
+    """Same reportlab-via-platypus approach as
+    institutions/views.py::MaintenanceReportView._render_pdf — a real
+    downloadable file (Content-Disposition: attachment), not a
+    window.print() dialog."""
+    from io import BytesIO
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        topMargin=1.5 * cm, bottomMargin=1.5 * cm, leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+    )
+    styles = getSampleStyleSheet()
+    cell_style = ParagraphStyle('cell', parent=styles['BodyText'], fontSize=8, leading=10)
+
+    student, guardian, period, summary = (
+        report['student'], report['guardian'], report['period'], report['summary']
+    )
+
+    meta_bits = [f"{period['label']} · Registration No: {student['registration_no']}"]
+    if student['institution']:
+        meta_bits.append(student['institution'])
+    if student['batch']:
+        meta_bits.append(f"Batch: {student['batch']}")
+    meta_line = ' · '.join(meta_bits)
+
+    generated = datetime.datetime.fromisoformat(report['generated_at']).strftime('%d %b %Y, %I:%M %p')
+
+    elements = [
+        Paragraph(f"{student['name']} — Monthly Report", styles['Title']),
+        Paragraph(meta_line, styles['Normal']),
+        Paragraph(f"Prepared for guardian: {guardian['name']}", styles['Normal']),
+        Paragraph(f"Generated {generated}", styles['Normal']),
+        Spacer(1, 0.5 * cm),
+    ]
+
+    def pct(v):
+        return f'{v}%' if v is not None else '—'
+
+    summary_rows = [[
+        'Courses', 'Activities graded', 'Avg. progress', 'New enrollments',
+    ], [
+        str(summary['total_courses']),
+        f"{summary['graded_activities']}/{summary['total_activities']}",
+        pct(summary['overall_average_progress_pct']),
+        str(summary['enrollments_this_month']),
+    ]]
+    summary_table = Table(summary_rows, repeatRows=1)
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
+    elements += [summary_table, Spacer(1, 0.8 * cm)]
+
+    def add_section(title, headers, rows):
+        elements.append(Paragraph(title, styles['Heading2']))
+        elements.append(Spacer(1, 0.2 * cm))
+        if not rows:
+            elements.append(Paragraph('No records.', styles['Normal']))
+        else:
+            body = [[Paragraph(str(cell), cell_style) for cell in row] for row in rows]
+            table = Table([headers] + body, repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            elements.append(table)
+        elements.append(Spacer(1, 0.8 * cm))
+
+    course_rows = [
+        [c['name'] + f" ({c['code']})", c['total_activities'], c['graded_activities'], pct(c['average_progress_pct'])]
+        for c in report['courses']
+    ]
+    add_section('Courses', ['Course', 'Total activities', 'Graded', 'Avg. progress'], course_rows)
+
+    activity_rows = [
+        [c['code'], a['name'], a['due_date'] or '—', pct(a['progress_pct']) if a['progress_pct'] is not None else 'Not graded yet']
+        for c in report['courses'] for a in c['activities']
+    ]
+    add_section('Activities', ['Course', 'Activity', 'Due', 'Progress'], activity_rows)
+
+    enrollment_rows = [
+        [f"{e['course']['name']} ({e['course']['code']})", e['enrolled_date']]
+        for e in report['enrollments_this_month']
+    ]
+    add_section(f"Enrollments in {period['label']}", ['Course', 'Enrolled on'], enrollment_rows)
+
+    doc.build(elements)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return HttpResponse(pdf_bytes, content_type='application/pdf')
+
 
 @csrf_exempt
 @require_http_methods(['GET'])
@@ -432,7 +543,7 @@ def parent_monthly_report(request):
         ).select_related('course').order_by('enrolled_date')
     ]
 
-    return JsonResponse({
+    report = {
         'guardian': {'id': guardian.id, 'name': guardian.name},
         'student': {
             'id':              student.id,
@@ -459,4 +570,15 @@ def parent_monthly_report(request):
         'courses':                courses_report,
         'enrollments_this_month': enrollments_this_month,
         'generated_at': datetime.datetime.now().isoformat(),
-    })
+    }
+
+    # Deliberately named "format", not "type" — this view is a plain Django
+    # function view (no DRF content negotiation on it) so there's no
+    # reserved-param collision to dodge, unlike MaintenanceReportView.
+    if (request.GET.get('format') or '').lower() == 'pdf':
+        response = _render_parent_report_pdf(report)
+        filename = f"{student.name.replace(' ', '-').lower()}-report-{year}-{month:02d}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    return JsonResponse(report)

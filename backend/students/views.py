@@ -1,46 +1,64 @@
+import csv
+import io
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from institutions.views import JWTView
-from institutions.models import Student, Guardian, StudentGuardian
+from institutions.models import Student, Guardian, StudentGuardian, ActivityLog
 from institutions.access import scoped_institution_filter, is_institution_allowed, load_permissions
 from institutions.jwt_utils import generate_access_token, generate_refresh_token
+from institutions.notification_service import NotificationService
+from auth.views import _user_json
 from .serializers import StudentSerializer, StudentListSerializer, GuardianSerializer
 from .services import StudentService
 
 
 class StudentSignupView(APIView):
     """
-    Public: a prospective student creates their own account, picking the
-    institution they want to enroll in, and is logged straight in — no
-    staff approval step. Batch assignment is left to a manager afterwards.
+    Public: a prospective student creates their own account by proving
+    institution membership with a join code. The account is NOT logged in —
+    it must clear email OTP verification (StudentVerifyOtpView) and then the
+    institution's approval (StudentApprovalView) before it can log in.
     """
 
     def post(self, request):
         try:
-            student, user = StudentService.register_student(request.data)
+            StudentService.register_student(request.data)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'message': 'Account created. Check your email for a verification code.',
+        }, status=status.HTTP_201_CREATED)
+
+
+class StudentVerifyOtpView(APIView):
+    """
+    Public: confirm the OTP emailed at signup to mark the email verified,
+    then log the student straight in — no separate trip to the login page
+    re-typing email/password. Their institution's approval is still a hard
+    gate on real access (enforced by JWTView.dispatch for every subsequent
+    request via institutions.access.student_access_block), so a still-PENDING
+    student holds a valid session but can't use any protected endpoint yet.
+    """
+
+    def post(self, request):
+        email = request.data.get('email')
+        code  = request.data.get('code')
+        try:
+            user = StudentService.verify_student_otp(email, code)
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         access_token  = generate_access_token(user)
         refresh_token = generate_refresh_token(user)
-        perms = load_permissions(user)
 
         response = Response({
-            'message': 'Account created successfully.',
-            'user': {
-                'id':              user.id,
-                'username':        user.username,
-                'email':           user.email,
-                'role':            user.role.name,
-                'role_id':         user.role_id,
-                'institution_id':  student.institution_id,
-                'permissions':     'ALL' if perms == 'ALL' else sorted(perms),
-            },
+            'message': 'Email verified. Your account is now awaiting approval from your institution.',
+            'user':    _user_json(user),
             'access':  access_token,
             'refresh': refresh_token,
-        }, status=status.HTTP_201_CREATED)
-
+        })
         response.set_cookie(
             key='access_token', value=access_token,
             httponly=True, secure=False, samesite='Lax',
@@ -52,6 +70,60 @@ class StudentSignupView(APIView):
             max_age=60 * 60 * 24 * 7, path='/',
         )
         return response
+
+
+class StudentResendOtpView(APIView):
+    """Public: re-send a fresh OTP, rate-limited per email."""
+
+    def post(self, request):
+        email = request.data.get('email')
+        try:
+            StudentService.resend_student_otp(email)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'A new verification code has been sent.'})
+
+
+class StudentPendingListView(JWTView):
+    """OWNER/MANAGER: students who verified their email and are awaiting approval."""
+    allowed_roles = ['OWNER', 'MANAGER']
+
+    def get(self, request):
+        students = Student.objects.filter(
+            is_deleted=False, status='PENDING', user__is_email_verified=True,
+        ).select_related('institution', 'user')
+        students = students.filter(**scoped_institution_filter(request.current_user, field='institution_id'))
+        return Response(StudentListSerializer(students, many=True).data)
+
+
+class StudentApproveView(JWTView):
+    allowed_roles = ['OWNER', 'MANAGER']
+
+    def post(self, request, pk):
+        batch_id = request.data.get('batch_id') or None
+        try:
+            student = StudentService.approve_student(pk, request.current_user, batch_id=batch_id)
+            return Response({
+                'message': 'Student approved.',
+                'data': StudentSerializer(student).data,
+            })
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StudentRejectView(JWTView):
+    allowed_roles = ['OWNER', 'MANAGER']
+
+    def post(self, request, pk):
+        try:
+            student = StudentService.reject_student(pk, request.current_user)
+            return Response({
+                'message': 'Student rejected.',
+                'data': StudentSerializer(student).data,
+            })
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StudentMyGuardiansView(JWTView):
@@ -152,6 +224,120 @@ class StudentListCreateView(JWTView):
             )
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StudentBulkImportView(JWTView):
+    """
+    OWNER/MANAGER: create many students at once from an uploaded CSV
+    (columns: name, email, phone, registration_no — registration_no is
+    optional and auto-assigned the same way self-signup does). Every row
+    goes through StudentService.create_student so it gets the exact same
+    validation/creation behavior as the single-add form; a bad row is
+    recorded as an error and the rest of the file still gets processed.
+    """
+    allowed_roles = ['SUPER_ADMIN', 'OWNER', 'MANAGER']
+    permission_map = {'POST': 'create_student'}
+
+    MAX_ROWS = 500
+
+    def post(self, request):
+        from institutions.models import Institution, Batch
+
+        institution_id = request.data.get('institution_id')
+        batch_id = request.data.get('batch_id') or None
+        upload = request.FILES.get('file')
+
+        if not institution_id:
+            return Response({'error': 'institution_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not is_institution_allowed(request.current_user, institution_id):
+            return Response(
+                {'error': 'You cannot add students to this institution.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if not upload:
+            return Response({'error': 'A CSV file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            institution = Institution.objects.get(id=institution_id, is_deleted=False)
+        except Institution.DoesNotExist:
+            return Response({'error': 'Institution not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if batch_id:
+            try:
+                batch = Batch.objects.get(id=batch_id)
+            except Batch.DoesNotExist:
+                return Response({'error': 'Batch not found.'}, status=status.HTTP_400_BAD_REQUEST)
+            if batch.institution_id != institution.id:
+                return Response(
+                    {'error': 'That batch belongs to a different institution.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            rows = list(csv.DictReader(io.TextIOWrapper(upload.file, encoding='utf-8-sig')))
+        except Exception:
+            return Response({'error': 'Could not read that file as CSV.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(rows) > self.MAX_ROWS:
+            return Response(
+                {'error': f'CSV has too many rows (max {self.MAX_ROWS}).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created_results = []
+        errors = []
+
+        for i, row in enumerate(rows, start=2):  # row 1 is the header
+            name = (row.get('name') or '').strip()
+            email = (row.get('email') or '').strip()
+            if not name and not email:
+                continue  # skip fully blank rows
+            if not name or not email:
+                errors.append({'row': i, 'error': 'name and email are required.'})
+                continue
+
+            registration_no = (row.get('registration_no') or '').strip()
+            if not registration_no:
+                registration_no = StudentService._next_registration_no(institution)
+
+            row_data = {
+                'name': name,
+                'email': email,
+                'phone': (row.get('phone') or '').strip(),
+                'registration_no': registration_no,
+                'institution_id': institution.id,
+                'batch_id': batch_id,
+            }
+            try:
+                student = StudentService.create_student(row_data, notify=False)
+                created_results.append({
+                    'name': student.name,
+                    'email': student.email,
+                    'registration_no': student.registration_no,
+                })
+            except ValueError as e:
+                errors.append({'row': i, 'error': str(e)})
+            except Exception as e:
+                # One malformed row (e.g. a uniqueness constraint create_student
+                # doesn't pre-check for) must not 500 the rest of the file.
+                errors.append({'row': i, 'error': f'Could not create this row: {e}'})
+
+        if created_results:
+            ActivityLog.objects.create(
+                actor=request.current_user, module='STUDENT', action='CREATE',
+                description=f"Bulk-imported {len(created_results)} student(s) via CSV into {institution.name}.",
+            )
+            NotificationService.notify_institution_staff(
+                institution.id,
+                title='Students imported',
+                message=f"{len(created_results)} student(s) were added via CSV import.",
+                link='/students',
+            )
+
+        return Response(
+            {'created': len(created_results), 'errors': errors, 'results': created_results},
+            status=status.HTTP_201_CREATED if created_results else status.HTTP_200_OK,
+        )
 
 
 class StudentDetailView(JWTView):

@@ -1,9 +1,13 @@
+import csv
+import io
 from rest_framework.response import Response
 from rest_framework import status
 from institutions.views import JWTView
-from institutions.models import Educator, Role, User, Allocation, StudentGuardian
+from institutions.models import Educator, Allocation, StudentGuardian, ActivityLog
 from institutions.access import scoped_institution_filter, is_institution_allowed, has_permission
+from institutions.notification_service import NotificationService
 from .serializers import EducatorSerializer
+from .services import create_educator
 
 
 def _is_my_educator(user, educator):
@@ -54,14 +58,8 @@ class EducatorListCreateView(JWTView):
 
     def post(self, request):
         data = request.data.copy()
-        email    = (data.get('email') or '').strip()
-        password = data.get('password')
         institution_id = data.get('institution')
 
-        if not email:
-            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not password:
-            return Response({'error': 'Password is required.'}, status=status.HTTP_400_BAD_REQUEST)
         if not institution_id:
             return Response({'error': 'Institution is required.'}, status=status.HTTP_400_BAD_REQUEST)
         if not is_institution_allowed(request.current_user, institution_id):
@@ -69,28 +67,110 @@ class EducatorListCreateView(JWTView):
                 {'error': 'You cannot create educators for this institution.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        if User.objects.filter(email=email).exists():
-            return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        educator_role, _ = Role.objects.get_or_create(name='EDUCATOR')
-        user = User(
-            username=email, email=email, role=educator_role,
-            is_active=True, is_email_verified=True,
-        )
-        user.set_password(password)
-        user.save()
+        try:
+            educator = create_educator(data)
+            return Response(EducatorSerializer(educator).data, status=status.HTTP_201_CREATED)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = EducatorSerializer(data=data)
-        if serializer.is_valid():
+
+class EducatorBulkImportView(JWTView):
+    """
+    OWNER/MANAGER: create many educators at once from an uploaded CSV
+    (columns: edu_id, name, email, phone). No password column — a missing
+    password defaults to the row's edu_id, mirroring how bulk-imported
+    students default to their registration_no (see
+    students/views.py::StudentBulkImportView). Every row goes through the
+    same create_educator() used by the single-add form; a bad row is
+    recorded as an error and the rest of the file still gets processed.
+    """
+    allowed_roles = ['SUPER_ADMIN', 'OWNER', 'MANAGER']
+    permission_map = {'POST': 'create_educator'}
+
+    MAX_ROWS = 500
+
+    def post(self, request):
+        from institutions.models import Institution
+
+        institution_id = request.data.get('institution_id')
+        upload = request.FILES.get('file')
+
+        if not institution_id:
+            return Response({'error': 'institution_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not is_institution_allowed(request.current_user, institution_id):
+            return Response(
+                {'error': 'You cannot create educators for this institution.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if not upload:
+            return Response({'error': 'A CSV file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            institution = Institution.objects.get(id=institution_id, is_deleted=False)
+        except Institution.DoesNotExist:
+            return Response({'error': 'Institution not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            rows = list(csv.DictReader(io.TextIOWrapper(upload.file, encoding='utf-8-sig')))
+        except Exception:
+            return Response({'error': 'Could not read that file as CSV.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(rows) > self.MAX_ROWS:
+            return Response(
+                {'error': f'CSV has too many rows (max {self.MAX_ROWS}).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created_results = []
+        errors = []
+
+        for i, row in enumerate(rows, start=2):  # row 1 is the header
+            edu_id = (row.get('edu_id') or '').strip()
+            name = (row.get('name') or '').strip()
+            email = (row.get('email') or '').strip()
+            if not edu_id and not name and not email:
+                continue  # skip fully blank rows
+            if not edu_id or not name or not email:
+                errors.append({'row': i, 'error': 'edu_id, name, and email are required.'})
+                continue
+
+            row_data = {
+                'edu_id': edu_id,
+                'name': name,
+                'email': email,
+                'phone': (row.get('phone') or '').strip(),
+                'password': edu_id,
+                'institution': institution.id,
+            }
             try:
-                educator = serializer.save(user=user)
-                return Response(EducatorSerializer(educator).data, status=status.HTTP_201_CREATED)
+                educator = create_educator(row_data)
+                created_results.append({
+                    'edu_id': educator.edu_id,
+                    'name': educator.name,
+                    'email': educator.email,
+                })
+            except ValueError as e:
+                errors.append({'row': i, 'error': str(e)})
             except Exception as e:
-                user.delete()
-                return Response({'error': f'Failed to create educator: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+                errors.append({'row': i, 'error': f'Could not create this row: {e}'})
 
-        user.delete()
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if created_results:
+            ActivityLog.objects.create(
+                actor=request.current_user, module='EDUCATOR', action='CREATE',
+                description=f"Bulk-imported {len(created_results)} educator(s) via CSV into {institution.name}.",
+            )
+            NotificationService.notify_institution_staff(
+                institution.id,
+                title='Educators imported',
+                message=f"{len(created_results)} educator(s) were added via CSV import.",
+                link='/educators',
+            )
+
+        return Response(
+            {'created': len(created_results), 'errors': errors, 'results': created_results},
+            status=status.HTTP_201_CREATED if created_results else status.HTTP_200_OK,
+        )
 
 
 class EducatorDetailView(JWTView):

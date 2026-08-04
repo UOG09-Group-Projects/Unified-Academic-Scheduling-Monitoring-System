@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from institutions.models import Institution, User, ActivityLog, LoginActivity, Notification
+from institutions.models import Institution, User, ActivityLog, LoginActivity, Notification, Announcement
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -90,3 +90,13 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Notification
         fields = ['id', 'title', 'message', 'link', 'is_read', 'created_at']
+
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    """OWNER/MANAGER announcements history — see AnnouncementListCreateView."""
+    batch_name   = serializers.CharField(source='batch.name', default=None, read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', default='System', read_only=True)
+
+    class Meta:
+        model  = Announcement
+        fields = ['id', 'title', 'message', 'batch', 'batch_name', 'created_by_name', 'created_at']

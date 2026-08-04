@@ -41,6 +41,8 @@ urlpatterns = [
     path('api/', include('enrollments.urls')),
     path('api/', include('activities.urls')),
     path('api/', include('complaints.urls')),
+    path('api/chat/', include('chat.urls')),
+    path('api/timetable/', include('timetable.urls')),
 
     path('api/dashboard/manager/', dashboard_views.manager_dashboard),
     path('api/dashboard/super-admin/', dashboard_views.super_admin_dashboard),

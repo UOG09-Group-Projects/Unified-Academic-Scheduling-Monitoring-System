@@ -81,7 +81,7 @@ export default function About() {
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
         >
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-brand-700 mb-3">
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
             About LightLearn
           </p>
           <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4 max-w-[400px]">

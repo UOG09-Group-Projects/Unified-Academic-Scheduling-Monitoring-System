@@ -6,6 +6,7 @@ import notificationService from "../services/notificationService";
 import { formatTimestamp } from "../utils/maintenanceFormat";
 import usePagination from "../hooks/usePagination";
 import usePolling from "../hooks/usePolling";
+import useLiveSocket from "../hooks/useLiveSocket";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
@@ -39,6 +40,7 @@ export default function Notifications() {
   }, []);
 
   usePolling(fetchNotifications, POLL_MS);
+  useLiveSocket({ onNotification: fetchNotifications });
 
   async function handleClick(n) {
     if (!n.is_read) {

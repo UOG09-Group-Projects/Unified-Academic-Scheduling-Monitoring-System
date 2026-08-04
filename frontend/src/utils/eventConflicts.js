@@ -1,6 +1,11 @@
-// Shared "does this day have overlapping events" logic, used by both the
-// calendar grid (EventCalendar) and the workload/conflict summary
-// (WorkloadSummary) so the two stay in agreement about what a conflict is.
+// Shared "does this day have a scheduling conflict" logic, used by both the
+// calendar grid (EventCalendar/CalendarPage) and the workload/conflict
+// summary (WorkloadSummary/StudentWorkload) so all of them stay in agreement
+// about what a conflict is. A day is a conflict either because two timed
+// items truly overlap, or because DAY_OVERLOAD_THRESHOLD or more items
+// (events and/or activities) land on the same day — activities are all-day
+// with no end time, so they can only ever be caught by this second rule.
+export const DAY_OVERLOAD_THRESHOLD = 3;
 
 function dateKey(d) {
   const dt = new Date(d);
@@ -27,15 +32,27 @@ function overlaps(a, b) {
 }
 
 /**
- * Returns { conflictIds: Set<number>, pairs: [{ date, a, b }] } describing
- * every pair of events on the same day whose start/end ranges truly overlap.
+ * Returns { conflictIds: Set<number>, notices: [{ date, message }] }
+ * describing every day that has a scheduling conflict: either a genuine
+ * start/end overlap between two timed items, or DAY_OVERLOAD_THRESHOLD+
+ * total items (events/activities) landing on the same day.
  */
 export function findOverlaps(events) {
   const byDate = groupEventsByDate(events);
   const conflictIds = new Set();
-  const pairs = [];
+  const notices = [];
 
-  for (const [date, dayEvents] of Object.entries(byDate)) {
+  for (const dayEvents of Object.values(byDate)) {
+    const overloaded = dayEvents.length >= DAY_OVERLOAD_THRESHOLD;
+
+    if (overloaded) {
+      dayEvents.forEach((e) => conflictIds.add(e.id));
+      notices.push({
+        date: dayEvents[0].start,
+        message: `${dayEvents.length} items scheduled the same day: ${dayEvents.map((e) => e.title).join(', ')}`,
+      });
+    }
+
     for (let i = 0; i < dayEvents.length; i++) {
       for (let j = i + 1; j < dayEvents.length; j++) {
         const a = dayEvents[i];
@@ -43,11 +60,14 @@ export function findOverlaps(events) {
         if (overlaps(a, b)) {
           conflictIds.add(a.id);
           conflictIds.add(b.id);
-          pairs.push({ date, a, b });
+          // Already covered by the overload notice above — avoid double-reporting.
+          if (!overloaded) {
+            notices.push({ date: a.start, message: `"${a.title}" overlaps with "${b.title}"` });
+          }
         }
       }
     }
   }
 
-  return { conflictIds, pairs };
+  return { conflictIds, notices };
 }

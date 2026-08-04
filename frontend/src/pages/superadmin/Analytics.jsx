@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Download, ClipboardList, LogIn } from "lucide-react";
+import { Building2, Download, ClipboardList, LogIn, GraduationCap, MessageSquareWarning } from "lucide-react";
 import maintenanceService from "../../services/maintenanceService";
+import analyticsService from "../../services/analyticsService";
 import { ACTION_BADGE, MODULE_LABEL, formatTimestamp } from "../../utils/maintenanceFormat";
 import usePagination from "../../hooks/usePagination";
 import Button from "../../components/ui/Button";
@@ -12,6 +13,8 @@ import EmptyState from "../../components/ui/EmptyState";
 import Pagination from "../../components/ui/Pagination";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { useToast } from "../../components/ui/Toast";
+import LineChartCard from "../../components/charts/LineChartCard";
+import { useSeriesColor } from "../../components/charts/useSeriesColor";
 
 const PAGE_SIZE = 10;
 
@@ -25,6 +28,7 @@ const fadeUp = {
 
 export default function Analytics() {
   const toast = useToast();
+  const { color: SERIES_COLOR } = useSeriesColor();
   const [downloading, setDownloading] = useState(null);
 
   const [institutionRows, setInstitutionRows] = useState([]);
@@ -33,6 +37,8 @@ export default function Analytics() {
   const [auditLoading, setAuditLoading] = useState(true);
   const [logins, setLogins] = useState([]);
   const [loginsLoading, setLoginsLoading] = useState(true);
+  const [trends, setTrends] = useState(null);
+  const [trendsLoading, setTrendsLoading] = useState(true);
 
   const institutionPager = usePagination(institutionRows, PAGE_SIZE);
   const auditPager = usePagination(auditLogs, PAGE_SIZE);
@@ -64,6 +70,16 @@ export default function Analytics() {
       .then((rows) => { if (!ignore) setLogins(rows); })
       .catch(() => { if (!ignore) toast.error('Failed to load login activity.'); })
       .finally(() => { if (!ignore) setLoginsLoading(false); });
+    return () => { ignore = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    analyticsService.getTrends()
+      .then((data) => { if (!ignore) setTrends(data); })
+      .catch(() => { if (!ignore) toast.error('Failed to load analytics trends.'); })
+      .finally(() => { if (!ignore) setTrendsLoading(false); });
     return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -122,6 +138,39 @@ export default function Analytics() {
       />
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0} className="mb-10">
+        {trendsLoading ? (
+          <SkeletonRows rows={4} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <LineChartCard
+              title="New institutions per month"
+              icon={Building2}
+              data={trends?.institutions_per_month ?? []}
+              color={SERIES_COLOR.ocean}
+            />
+            <LineChartCard
+              title="New students per month"
+              icon={GraduationCap}
+              data={trends?.students_per_month ?? []}
+              color={SERIES_COLOR.success}
+            />
+            <LineChartCard
+              title="Logins per day (last 30 days)"
+              icon={LogIn}
+              data={trends?.logins_per_day ?? []}
+              color={SERIES_COLOR.accent}
+            />
+            <LineChartCard
+              title="Complaints per month"
+              icon={MessageSquareWarning}
+              data={trends?.complaints_per_month ?? []}
+              color={SERIES_COLOR.warning}
+            />
+          </div>
+        )}
+      </motion.div>
+
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1} className="mb-10">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
             <Building2 className="w-4 h-4 text-ink-faint" />
@@ -181,7 +230,7 @@ export default function Analytics() {
         )}
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1} className="mb-10">
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="mb-10">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-ink-faint" />
@@ -236,7 +285,7 @@ export default function Analytics() {
         )}
       </motion.div>
 
-      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2}>
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
             <LogIn className="w-4 h-4 text-ink-faint" />

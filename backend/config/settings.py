@@ -37,6 +37,9 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    # Must come first: registers a Channels/ASGI-aware `runserver` command so
+    # `manage.py runserver` serves WebSocket traffic too, not just HTTP.
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -45,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'channels',
     'accounts',
     'institutions',
     'managers',
@@ -56,12 +60,17 @@ INSTALLED_APPS = [
     'enrollments',
     'activities',
     'complaints',
+    'chat',
+    'timetable',
 ]
 
 MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    # After CORS (so its headers still apply to a 503) but before everything
+    # else — see institutions/middleware.py::MaintenanceModeMiddleware.
+    'institutions.middleware.MaintenanceModeMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -87,6 +96,16 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+# In-process channel layer — fine for a single dev server; a multi-process
+# production deployment would need channels_redis instead so group_send
+# reaches consumers connected to other worker processes.
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 
 # Database

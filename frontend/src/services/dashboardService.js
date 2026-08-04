@@ -47,6 +47,13 @@ const dashboardService = {
     client.get('/dashboard/parent/report/', {
       params: { student_id: studentId, year, month },
     }).then(r => r.data),
+
+  // Real file download (Content-Disposition: attachment), not window.print().
+  downloadParentMonthlyReport: (studentId, year, month) =>
+    client.get('/dashboard/parent/report/', {
+      params: { student_id: studentId, year, month, format: 'pdf' },
+      responseType: 'blob',
+    }),
 };
 
 export default dashboardService;

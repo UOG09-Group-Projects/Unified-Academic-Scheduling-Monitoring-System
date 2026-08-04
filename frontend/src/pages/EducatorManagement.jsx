@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Camera, X, Search, GraduationCap, Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import { Camera, X, Search, GraduationCap, Plus, Pencil, Trash2, Building2, UploadCloud } from "lucide-react";
 import api from "../services/api";
+import educatorService from "../services/educatorService";
 import PageHeader from "../components/ui/PageHeader";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import EmptyState from "../components/ui/EmptyState";
+import CsvImportModal from "../components/CsvImportModal";
 import StatCard from "../components/StatCard";
 import { Input, Select } from "../components/ui/Field";
 import { SkeletonRows } from "../components/ui/Skeleton";
@@ -50,6 +52,7 @@ export default function EducatorManagement() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formError, setFormError] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const fileRef = useRef();
   const toast = useToast();
 
@@ -196,9 +199,14 @@ export default function EducatorManagement() {
           title="Educator management"
           subtitle="Teaching staff across your institutions"
           actions={can('create_educator') && (
-            <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
-              Add educator
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="md" icon={UploadCloud} onClick={() => setImportOpen(true)}>
+                Import CSV
+              </Button>
+              <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
+                Add educator
+              </Button>
+            </div>
           )}
         />
 
@@ -357,6 +365,16 @@ export default function EducatorManagement() {
         title="Delete educator"
         message={`Delete "${selected?.name}"?`}
         loading={saving}
+      />
+
+      <CsvImportModal
+        open={importOpen}
+        onClose={() => { setImportOpen(false); fetchEducators(); }}
+        title="Import educators"
+        helpText="Columns: edu_id, name, email, phone (optional). Each account's initial password defaults to its edu_id."
+        templateHeaders={['edu_id', 'name', 'email', 'phone']}
+        institutions={institutions}
+        onSubmit={(file, { institutionId }) => educatorService.bulkImport(file, { institutionId })}
       />
     </div>
   );

@@ -1,6 +1,17 @@
+from datetime import date, timedelta
 from django.db import transaction
 from django.utils import timezone
-from institutions.models import Activity, Allocation, Student, StudentGuardian, Progress, Enrolment, CourseBatch
+from institutions.models import (
+    Activity, Allocation, Student, StudentGuardian, Progress, Enrolment, CourseBatch, DueSoonReminder,
+)
+from institutions.notification_service import NotificationService
+from events.broadcast import broadcast_calendar_update
+from events.services import day_item_count, DAY_OVERLOAD_THRESHOLD
+
+# "Nearing" = due today or tomorrow. Checked every 30 min by
+# institutions/scheduler.py; DueSoonReminder prevents re-notifying the same
+# activity+student pair once a reminder has gone out.
+DUE_SOON_WINDOW_DAYS = 2
 
 
 def _educator_course_ids(user):
@@ -71,6 +82,87 @@ def _course_students(course_id):
     return Student.objects.filter(id__in=ids, is_deleted=False).order_by('name')
 
 
+def _notify_activity_created(activity, course):
+    """Fan out a "new activity" notification to every enrolled student and
+    their guardians. Each group gets a link to the page relevant to them."""
+    students = list(_course_students(course.id))
+    student_users = [s.user for s in students if s.user_id]
+
+    guardians = StudentGuardian.objects.filter(
+        student_id__in=[s.id for s in students]
+    ).select_related('guardian__user')
+    guardian_users = {g.guardian.user for g in guardians if g.guardian.user_id}
+
+    due_suffix = f' · due {activity.due_date}' if activity.due_date else ''
+
+    NotificationService.notify_many(
+        student_users,
+        title=f'New activity: {activity.name}',
+        message=f'{course.name}{due_suffix}',
+        link='/my-courses',
+    )
+    NotificationService.notify_many(
+        list(guardian_users),
+        title=f'New activity: {activity.name}',
+        message=f'Added to {course.name}{due_suffix}',
+        link='/dashboard/parent',
+    )
+
+
+def _notify_activity_day_overload(activity):
+    """Warn each enrolled student (with a login) whose due-date day just
+    reached DAY_OVERLOAD_THRESHOLD total events/activities — mirrors
+    events/services.py's day-overload check so an activity due date can
+    trigger a conflict just as an Event can."""
+    if not activity.due_date:
+        return
+    try:
+        day = date.fromisoformat(activity.due_date)
+    except ValueError:
+        return
+
+    date_label = day.strftime('%b %d')
+    for student in _course_students(activity.course_id):
+        if not student.user_id:
+            continue
+        count = day_item_count(student.user, day)
+        if count >= DAY_OVERLOAD_THRESHOLD:
+            NotificationService.notify(
+                student.user,
+                title='Scheduling conflict',
+                message=f'{count} events/activities are now due/scheduled on {date_label}.',
+                link='/my-courses',
+            )
+
+
+def check_due_soon_activities():
+    """
+    Periodic job (see institutions/scheduler.py) — reminds every enrolled
+    student once when their activity's due date enters the "nearing"
+    window. Safe to call as often as you like: DueSoonReminder's
+    unique_together makes the second-and-later call for the same
+    activity+student a no-op.
+    """
+    window_dates = {
+        (date.today() + timedelta(days=i)).isoformat() for i in range(DUE_SOON_WINDOW_DAYS)
+    }
+
+    activities = Activity.objects.filter(due_date__in=window_dates).select_related('course')
+    for activity in activities:
+        for student in _course_students(activity.course_id):
+            if not student.user_id:
+                continue
+            _, created = DueSoonReminder.objects.get_or_create(activity=activity, student=student)
+            if not created:
+                continue
+            NotificationService.notify(
+                student.user,
+                title=f'Due soon: {activity.name}',
+                message=f'{activity.course.name} · due {activity.due_date}',
+                link='/my-courses',
+            )
+
+
 class ActivityService:
 
     @staticmethod
@@ -97,13 +189,17 @@ class ActivityService:
         if not name:
             raise ValueError('Activity name is required.')
 
-        return Activity.objects.create(
+        activity = Activity.objects.create(
             name=name,
             course_id=course_id,
             due_date=data.get('due_date', ''),
             description=data.get('description', ''),
             optional=bool(data.get('optional', False)),
         )
+        broadcast_calendar_update(activity.course.institution_id, 'activities_changed')
+        _notify_activity_created(activity, activity.course)
+        _notify_activity_day_overload(activity)
+        return activity
 
     @staticmethod
     @transaction.atomic
@@ -128,17 +224,22 @@ class ActivityService:
             activity.optional = bool(data.get('optional'))
 
         activity.save()
+        broadcast_calendar_update(activity.course.institution_id, 'activities_changed')
+        if 'due_date' in data:
+            _notify_activity_day_overload(activity)
         return activity
 
     @staticmethod
     def delete(user, activity_id):
         try:
-            activity = Activity.objects.get(id=activity_id)
+            activity = Activity.objects.select_related('course').get(id=activity_id)
         except Activity.DoesNotExist:
             raise ValueError('Activity not found.')
         if activity.course_id not in _educator_course_ids(user):
             raise ValueError('You can only delete activities for your own courses.')
+        institution_id = activity.course.institution_id
         activity.delete()
+        broadcast_calendar_update(institution_id, 'activities_changed')
         return True
 
 
@@ -201,15 +302,19 @@ class ProgressService:
 
     @staticmethod
     @transaction.atomic
-    def mark_complete(user, student_id, activity_id, completed):
+    def set_status(user, student_id, activity_id, status):
         """
-        Student self-report: "I did this task." Independent of `value` (the
-        educator's grade) — never touches it, so a student toggling this
-        can't overwrite a grade they've already been given.
+        Student self-report: not started / in progress / completed.
+        Independent of `value` (the educator's grade) — never touches it, so
+        a student updating this can't overwrite a grade they've already
+        been given.
         """
         me = _student(user)
         if not me or me.id != int(student_id):
-            raise ValueError('You can only mark your own tasks complete.')
+            raise ValueError('You can only update your own task status.')
+
+        if status not in dict(Progress.STATUS_CHOICES):
+            raise ValueError('Invalid status.')
 
         try:
             activity = Activity.objects.select_related('course').get(id=activity_id)
@@ -219,12 +324,11 @@ class ProgressService:
         if activity.course_id not in _student_course_ids(me):
             raise ValueError('You are not enrolled in this course.')
 
-        completed = bool(completed)
         progress, _ = Progress.objects.update_or_create(
             student=me, activity=activity,
             defaults={
-                'completed': completed,
-                'completed_at': timezone.now() if completed else None,
+                'status': status,
+                'status_updated_at': timezone.now(),
             },
         )
         return progress

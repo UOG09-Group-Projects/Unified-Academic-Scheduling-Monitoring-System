@@ -38,12 +38,12 @@ export default function Navbar() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-[5%] h-[72px] transition-all duration-300 ${
         scrolled
-          ? "bg-white/70 backdrop-blur-xl border-b border-white/60 shadow-soft"
+          ? "bg-white/70 backdrop-blur-xl border-b border-ocean-100 shadow-soft"
           : "bg-transparent border-b border-transparent"
       }`}
     >
       <a href="#home" className="flex items-center gap-2 no-underline">
-        <span className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center shadow-soft">
+        <span className="w-8 h-8 rounded-xl bg-ocean-600 flex items-center justify-center shadow-soft">
           <GraduationCap size={16} strokeWidth={2.4} className="text-white" />
         </span>
         <span className="font-display text-[1.2rem] font-bold tracking-tight text-ink">
@@ -65,7 +65,7 @@ export default function Navbar() {
             {active === href.replace("#", "") && (
               <motion.span
                 layoutId="nav-underline"
-                className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-brand-600 rounded-full"
+                className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-ocean-600 rounded-full"
               />
             )}
           </li>
@@ -79,7 +79,7 @@ export default function Navbar() {
         <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
           Sign in
         </Button>
-        <Button variant="brand" size="sm" onClick={() => navigate("/login")}>
+        <Button variant="oceanSolid" size="sm" onClick={() => navigate("/login")}>
           Get started
         </Button>
       </div>

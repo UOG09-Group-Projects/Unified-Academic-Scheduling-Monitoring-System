@@ -9,7 +9,7 @@ import json
 from institutions.models import User, Role, LoginActivity
 from institutions.jwt_utils import generate_access_token, generate_refresh_token, decode_token, jwt_required
 from institutions.email_utils import send_verification_email, send_password_reset_email
-from institutions.access import load_permissions, resolve_institution_id, owned_institution_ids
+from institutions.access import load_permissions, resolve_institution_id, owned_institution_ids, student_access_block
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +50,11 @@ def _user_json(user) -> dict:
         if inst_id is not None:
             data['institution_id'] = inst_id
 
+    if user.role.name.upper() == 'STUDENT':
+        student = getattr(user, 'student_profile', None)
+        if student is not None:
+            data['student_status'] = student.status
+
     perms = load_permissions(user)
     data['permissions'] = 'ALL' if perms == 'ALL' else sorted(perms)
 
@@ -83,6 +88,7 @@ def login_view(request):
             'role',
             'manager_profile',
             'educator_profile',
+            'student_profile',
         ).get(email=email)
     except User.DoesNotExist:
         return JsonResponse({'error': 'Invalid email or password.'}, status=401)
@@ -92,6 +98,10 @@ def login_view(request):
 
     if not user.is_active:
         return JsonResponse({'error': 'Your account has been deactivated.'}, status=403)
+
+    block_reason = student_access_block(user)
+    if block_reason:
+        return JsonResponse({'error': block_reason}, status=403)
 
     if user.role.name.upper() == 'OWNER':
         institution = user.owned_institutions.order_by('-created_at').first()
@@ -199,7 +209,22 @@ def me_view(request):
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found.'}, status=404)
 
-    return JsonResponse({'user': _user_json(user)})
+    data = _user_json(user)
+
+    # Reflects an active impersonation session on a plain page refresh too —
+    # PermissionsContext's boot-time refresh() calls this endpoint, and the
+    # impersonated_by claim was stashed onto current_user by jwt_required
+    # (see institutions/jwt_utils.py).
+    admin_id = getattr(request.current_user, 'impersonated_by', None)
+    if admin_id:
+        try:
+            admin = User.objects.get(pk=admin_id)
+            data['impersonating'] = True
+            data['real_admin'] = {'id': admin.id, 'username': admin.username}
+        except User.DoesNotExist:
+            pass
+
+    return JsonResponse({'user': data})
 
 
 # ---------------------------------------------------------------------------

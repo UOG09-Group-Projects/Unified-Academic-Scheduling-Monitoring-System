@@ -1,6 +1,8 @@
 // src/pages/StudentDashboard.jsx
 import { useReducer, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 
 import StudentProfileCard from '../components/student/StudentProfileCard';
 import StudentStatCards from '../components/student/StudentStatCards';
@@ -12,12 +14,15 @@ import WorkloadSummary from '../components/calendar/WorkloadSummary';
 import PageHeader from '../components/ui/PageHeader';
 import ProgressBar from '../components/ui/ProgressBar';
 import Card from '../components/ui/Card';
+import StatGrid from '../components/ui/StatGrid';
 import BarChartCard from '../components/charts/BarChartCard';
+import { useSeriesColor } from '../components/charts/useSeriesColor';
 import { SkeletonRows } from '../components/ui/Skeleton';
 import ErrorState from '../components/ui/ErrorState';
 import dashboardService from '../services/dashboardService';
 import progressService from '../services/progressService';
 import studentService from '../services/studentService';
+import { fadeUp } from '../utils/motionVariants';
 
 const initial = { data: null, loading: true, error: null };
 
@@ -34,15 +39,8 @@ function reducer(state, action) {
   }
 }
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
 export default function StudentDashboard() {
+  const { color: SERIES_COLOR } = useSeriesColor();
   const [state, dispatch] = useReducer(reducer, initial);
   const { data, loading, error } = state;
   const [progressRecords, setProgressRecords] = useState([]);
@@ -119,12 +117,9 @@ export default function StudentDashboard() {
         </Card>
       </motion.div>
 
-      <motion.div
-        variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-5 mb-10"
-      >
+      <StatGrid count={4} custom={1} className="mb-10">
         <StudentStatCards summary={summary} progressRecords={progressRecords} />
-      </motion.div>
+      </StatGrid>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={2} className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mb-8 items-start">
         <div>
@@ -140,7 +135,7 @@ export default function StudentDashboard() {
           />
         </div>
 
-        <BarChartCard title="Educators per course" data={educatorsPerCourse} color="#00A0F5" height={260} />
+        <BarChartCard title="Educators per course" data={educatorsPerCourse} color={SERIES_COLOR.ocean} height={260} />
       </motion.div>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={3} className="mb-8">
@@ -152,13 +147,27 @@ export default function StudentDashboard() {
       </motion.div>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={5} className="mb-8">
-        <h2 className="text-sm font-semibold text-ink mb-3">Workload</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-ink">Workload</h2>
+          <Link
+            to="/workload"
+            className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
+          >
+            View all weeks <ArrowRight size={12} />
+          </Link>
+        </div>
         <WorkloadSummary />
       </motion.div>
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={6}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-ink">Schedule</h2>
+          <Link
+            to="/calendar"
+            className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
+          >
+            Open full calendar <ArrowRight size={12} />
+          </Link>
         </div>
         <EventCalendar role="STUDENT" />
       </motion.div>

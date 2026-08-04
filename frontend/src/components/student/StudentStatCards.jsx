@@ -9,6 +9,7 @@ export default function StudentStatCards({ summary, progressRecords = [] }) {
 
   const totalTasks = summary.total_tasks ?? 0;
   const completedTasks = summary.completed_tasks ?? 0;
+  const inProgressTasks = summary.in_progress_tasks ?? 0;
   const completionPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
@@ -33,7 +34,7 @@ export default function StudentStatCards({ summary, progressRecords = [] }) {
         tone="ocean"
         icon={CheckCircle2}
         progress={completionPct}
-        progressLabel={totalTasks > 0 ? `${completionPct}% marked done` : 'No tasks yet'}
+        progressLabel={totalTasks > 0 ? `${inProgressTasks} in progress · ${completionPct}% done` : 'No tasks yet'}
       />
     </>
   );

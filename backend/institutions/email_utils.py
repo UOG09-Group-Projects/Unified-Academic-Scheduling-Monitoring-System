@@ -1,11 +1,51 @@
+import secrets
 import uuid
 import datetime
 from django.core.mail import send_mail
 from django.conf import settings
 
+OTP_VALID_MINUTES  = 10
+OTP_RESEND_SECONDS = 60
+OTP_MAX_ATTEMPTS   = 5
+
 
 def generate_token():
     return uuid.uuid4().hex + uuid.uuid4().hex  # 64-char token
+
+
+def send_otp_email(user):
+    """
+    Generate a 6-digit OTP for student signup email verification, store it
+    on the user with an expiry, and email it. Resets the attempt counter
+    (used to lock out repeated wrong guesses).
+    """
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    now  = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+
+    user.otp_code     = code
+    user.otp_expiry   = now + datetime.timedelta(minutes=OTP_VALID_MINUTES)
+    user.otp_sent_at  = now
+    user.otp_attempts = 0
+    user.save()
+
+    send_mail(
+        subject='Your LightLearn verification code',
+        message=f"""
+Hi {user.username},
+
+Your verification code is: {code}
+
+Enter this code to verify your email. It expires in {OTP_VALID_MINUTES} minutes.
+
+If you did not request this, please ignore this email.
+
+— LightLearn Team
+        """,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+    return code
 
 
 def send_verification_email(user):

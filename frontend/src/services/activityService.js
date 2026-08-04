@@ -1,6 +1,9 @@
 import api from './api';
 
 const activityService = {
+  listMine: () =>
+    api.get('/activities/mine/').then((r) => r.data),
+
   listForCourse: (courseId) =>
     api.get('/activities/', { params: { course_id: courseId } }).then((r) => r.data),
 

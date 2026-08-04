@@ -1,7 +1,7 @@
 // src/pages/StudentProgress.jsx
 import { useReducer, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, CheckCircle2, BookOpen } from 'lucide-react';
+import { TrendingUp, CheckCircle2, Clock3, BookOpen } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import CourseActivityProgress from '../components/activities/CourseActivityProgress';
 import PageHeader from '../components/ui/PageHeader';
@@ -81,6 +81,7 @@ export default function StudentProgress() {
 
   const totalTasks = summary.total_tasks ?? 0;
   const completedTasks = summary.completed_tasks ?? 0;
+  const inProgressTasks = summary.in_progress_tasks ?? 0;
   const completionPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
@@ -89,7 +90,7 @@ export default function StudentProgress() {
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10"
       >
         <StatCard
           label="Overall progress"
@@ -102,6 +103,13 @@ export default function StudentProgress() {
               ? `Averaged across ${graded.length} graded activit${graded.length !== 1 ? 'ies' : 'y'}`
               : 'No graded activities yet'
           }
+        />
+        <StatCard
+          label="In progress"
+          value={totalTasks > 0 ? inProgressTasks : '—'}
+          tone="warning"
+          icon={Clock3}
+          progressLabel={totalTasks > 0 ? `Out of ${totalTasks} total tasks` : 'No tasks yet'}
         />
         <StatCard
           label="Tasks completed"

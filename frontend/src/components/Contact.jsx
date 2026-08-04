@@ -53,7 +53,7 @@ export default function Contact() {
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.5 }}
         >
-          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-brand-700 mb-3">
+          <p className="text-xs font-semibold tracking-[0.15em] uppercase text-ocean-700 mb-3">
             Get in touch
           </p>
           <h2 className="font-display font-bold text-[clamp(1.9rem,3.5vw,2.75rem)] leading-[1.15] tracking-tight text-ink mb-4">
@@ -74,8 +74,8 @@ export default function Contact() {
                 transition={{ duration: 0.4, delay: i * 0.06 }}
                 className="flex gap-3.5 items-start"
               >
-                <div className="w-10 h-10 bg-brand-50 border border-ink/[0.08] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Icon size={17} className="text-brand-700" />
+                <div className="w-10 h-10 bg-ocean-50 border border-ink/[0.08] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Icon size={17} className="text-ocean-700" />
                 </div>
                 <div>
                   <h4 className="text-[0.85rem] font-semibold text-ink mb-0.5">{title}</h4>
@@ -122,7 +122,7 @@ export default function Contact() {
                 </p>
               )}
 
-              <Button type="submit" variant="brand" size="lg" className="w-full mt-1" disabled={sending}>
+              <Button type="submit" variant="oceanSolid" size="lg" className="w-full mt-1" disabled={sending}>
                 {submitted ? (
                   <span className="flex items-center gap-2"><Check size={16} /> Message sent!</span>
                 ) : (

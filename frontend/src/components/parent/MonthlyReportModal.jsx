@@ -1,90 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Printer, FileText } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { Select } from '../ui/Field';
 import { SkeletonRows } from '../ui/Skeleton';
 import EmptyState from '../ui/EmptyState';
+import { useToast } from '../ui/Toast';
 import dashboardService from '../../services/dashboardService';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
-
-function buildReportHtml(report) {
-  const { student, guardian, period, summary, courses, enrollments_this_month } = report;
-
-  const courseRows = courses.map((c) => `
-    <tr>
-      <td>${c.name} (${c.code})</td>
-      <td>${c.total_activities}</td>
-      <td>${c.graded_activities}</td>
-      <td>${c.average_progress_pct != null ? c.average_progress_pct + '%' : '—'}</td>
-    </tr>
-  `).join('') || '<tr><td colspan="4">No courses.</td></tr>';
-
-  const activityRows = courses.flatMap((c) =>
-    c.activities.map((a) => `
-      <tr>
-        <td>${c.code}</td>
-        <td>${a.name}</td>
-        <td>${a.due_date || '—'}</td>
-        <td>${a.progress_pct != null ? a.progress_pct + '%' : 'Not graded yet'}</td>
-      </tr>
-    `)
-  ).join('') || '<tr><td colspan="4">No activities.</td></tr>';
-
-  const enrollmentRows = enrollments_this_month.map((e) => `
-    <tr><td>${e.course.name} (${e.course.code})</td><td>${e.enrolled_date}</td></tr>
-  `).join('') || '<tr><td colspan="2">No new enrollments this month.</td></tr>';
-
-  return `<!doctype html>
-<html><head><meta charset="utf-8"><title>${student.name} — ${period.label} report</title>
-<style>
-  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; color: #1a1a1a; padding: 32px; max-width: 800px; margin: 0 auto; }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  h2 { font-size: 14px; margin-top: 28px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; color: #555; }
-  .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e5e5; }
-  th { color: #666; font-weight: 600; }
-  .stats { display: flex; gap: 24px; margin: 16px 0; }
-  .stat { }
-  .stat .value { font-size: 20px; font-weight: 700; }
-  .stat .label { font-size: 11px; color: #777; text-transform: uppercase; }
-  @media print { body { padding: 0; } }
-</style></head>
-<body>
-  <h1>${student.name} — Monthly Report</h1>
-  <p class="meta">
-    ${period.label} · Registration No: ${student.registration_no}
-    ${student.institution ? ' · ' + student.institution : ''}
-    ${student.batch ? ' · Batch: ' + student.batch : ''}
-    <br>Prepared for guardian: ${guardian.name}
-    <br>Generated: ${new Date(report.generated_at).toLocaleString()}
-  </p>
-
-  <div class="stats">
-    <div class="stat"><div class="value">${summary.total_courses}</div><div class="label">Courses</div></div>
-    <div class="stat"><div class="value">${summary.graded_activities}/${summary.total_activities}</div><div class="label">Activities graded</div></div>
-    <div class="stat"><div class="value">${summary.overall_average_progress_pct != null ? summary.overall_average_progress_pct + '%' : '—'}</div><div class="label">Average progress</div></div>
-    <div class="stat"><div class="value">${summary.enrollments_this_month}</div><div class="label">New enrollments this month</div></div>
-  </div>
-
-  <h2>Courses</h2>
-  <table><thead><tr><th>Course</th><th>Total activities</th><th>Graded</th><th>Avg. progress</th></tr></thead>
-  <tbody>${courseRows}</tbody></table>
-
-  <h2>Activities</h2>
-  <table><thead><tr><th>Course</th><th>Activity</th><th>Due</th><th>Progress</th></tr></thead>
-  <tbody>${activityRows}</tbody></table>
-
-  <h2>Enrollments in ${period.label}</h2>
-  <table><thead><tr><th>Course</th><th>Enrolled on</th></tr></thead>
-  <tbody>${enrollmentRows}</tbody></table>
-</body></html>`;
-}
 
 export default function MonthlyReportModal({ open, onClose, student }) {
   const now = new Date();
@@ -93,6 +20,8 @@ export default function MonthlyReportModal({ open, onClose, student }) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     if (!open || !student) return;
@@ -104,13 +33,29 @@ export default function MonthlyReportModal({ open, onClose, student }) {
       .finally(() => setLoading(false));
   }, [open, student, year, month]);
 
-  const handlePrint = () => {
-    if (!report) return;
-    const win = window.open('', '_blank');
-    win.document.write(buildReportHtml(report));
-    win.document.close();
-    win.focus();
-    win.print();
+  const handleDownload = async () => {
+    if (!student) return;
+    setDownloading(true);
+    try {
+      const res = await dashboardService.downloadParentMonthlyReport(student.id, year, month);
+      const disposition = res.headers?.['content-disposition'] ?? '';
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : `${student.name.toLowerCase()}-report-${year}-${month}.pdf`;
+
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Report downloaded.');
+    } catch {
+      toast.error('Could not download the report.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
@@ -124,8 +69,8 @@ export default function MonthlyReportModal({ open, onClose, student }) {
       footer={
         <>
           <Button variant="outline" size="md" onClick={onClose}>Close</Button>
-          <Button variant="ocean" size="md" icon={Printer} onClick={handlePrint} disabled={!report}>
-            Print / Save as PDF
+          <Button variant="ocean" size="md" icon={Download} onClick={handleDownload} disabled={!report || downloading}>
+            {downloading ? 'Downloading…' : 'Download PDF'}
           </Button>
         </>
       }

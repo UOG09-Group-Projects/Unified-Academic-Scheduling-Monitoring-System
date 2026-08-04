@@ -1,7 +1,11 @@
 from rest_framework.response import Response
 from institutions.views import JWTView
 from institutions.access import has_permission
-from .services import ActivityService, ProgressService
+from institutions.models import Activity
+from .services import (
+    ActivityService, ProgressService,
+    _educator_course_ids, _student_course_ids, _child_course_ids, _student,
+)
 
 
 def _activity_json(a):
@@ -37,6 +41,35 @@ class CourseActivitiesView(JWTView):
             return Response({'message': 'Activity created.', 'data': _activity_json(activity)}, status=201)
         except ValueError as e:
             return Response({'error': str(e)}, status=400)
+
+
+class MyActivitiesView(JWTView):
+    """GET /api/activities/mine/ — every activity across every course visible
+    to the current user (their own for a student, taught for an educator,
+    their children's for a parent). Used to merge activities into the
+    calendar view, which otherwise only shows Events."""
+
+    def get(self, request):
+        user = request.current_user
+        role = user.role.name.upper()
+
+        if role == 'EDUCATOR':
+            course_ids = _educator_course_ids(user)
+        elif role == 'STUDENT':
+            course_ids = _student_course_ids(_student(user))
+        elif role == 'PARENT':
+            course_ids = _child_course_ids(user)
+        else:
+            course_ids = []
+
+        activities = Activity.objects.filter(course_id__in=course_ids).select_related('course').order_by('id')
+        return Response([
+            {
+                **_activity_json(a),
+                'course_name': a.course.name,
+            }
+            for a in activities
+        ])
 
 
 class CourseRosterView(JWTView):
@@ -98,8 +131,8 @@ class StudentProgressView(JWTView):
             {
                 'id': p.id,
                 'value': float(p.value) if p.value is not None else None,
-                'completed': p.completed,
-                'completed_at': p.completed_at,
+                'status': p.status,
+                'status_updated_at': p.status_updated_at,
                 'activity': {
                     'id': p.activity.id,
                     'name': p.activity.name,
@@ -128,15 +161,15 @@ class StudentProgressView(JWTView):
         if role == 'STUDENT':
             # Self-report only — never touches the educator's `value` grade.
             try:
-                progress = ProgressService.mark_complete(
+                progress = ProgressService.set_status(
                     request.current_user,
                     request.data.get('student_id'),
                     request.data.get('activity_id'),
-                    request.data.get('completed'),
+                    request.data.get('status'),
                 )
                 return Response({
                     'message': 'Task updated.',
-                    'data': {'id': progress.id, 'completed': progress.completed, 'completed_at': progress.completed_at},
+                    'data': {'id': progress.id, 'status': progress.status, 'status_updated_at': progress.status_updated_at},
                 })
             except ValueError as e:
                 return Response({'error': str(e)}, status=400)

@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "./ui/Button";
@@ -30,15 +31,27 @@ const fadeUp = {
 
 export default function Hero() {
   const navigate = useNavigate();
+  const sectionRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
+  const blobOneY = useTransform(scrollYProgress, [0, 1], [0, 120]);
+  const blobTwoY = useTransform(scrollYProgress, [0, 1], [0, -80]);
+  const visualY = useTransform(scrollYProgress, [0, 1], [0, 60]);
 
   return (
     <section
+      ref={sectionRef}
       id="home"
       className="relative min-h-screen bg-paper flex items-center px-[5%] pt-[110px] pb-16 overflow-hidden"
     >
-      {/* soft ambient shapes — muted navy + warm academic accent, no neon */}
-      <div className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-accent-100/50 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 -left-32 w-[360px] h-[360px] rounded-full bg-brand-100/50 blur-3xl pointer-events-none" />
+      {/* ambient ocean-blue shapes — solid tints (no gradient), drifting on scroll */}
+      <motion.div
+        style={{ y: blobOneY }}
+        className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-ocean-200/40 blur-3xl pointer-events-none"
+      />
+      <motion.div
+        style={{ y: blobTwoY }}
+        className="absolute bottom-0 -left-32 w-[360px] h-[360px] rounded-full bg-ocean-100/60 blur-3xl pointer-events-none"
+      />
 
       <div className="relative z-10 max-w-[1200px] mx-auto grid lg:grid-cols-[1.05fr_0.95fr] gap-16 items-center w-full">
         {/* Copy */}
@@ -47,7 +60,7 @@ export default function Hero() {
             variants={fadeUp} initial="hidden" animate="show" custom={0}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-xl border border-white/60 shadow-soft mb-6"
           >
-            <Sparkles size={13} className="text-brand-600" />
+            <Sparkles size={13} className="text-ocean-600" />
             <span className="text-xs font-semibold text-ink-soft tracking-wide">
               Built for academic scheduling
             </span>
@@ -59,8 +72,7 @@ export default function Hero() {
           >
             Every class, exam and
             <br />
-            deadline —{" "}
-            <span className="bg-gradient-to-r from-brand-500 to-brand-800 bg-clip-text text-transparent">in one place.</span>
+            deadline — <span className="text-ocean-600">in one place.</span>
           </motion.h1>
 
           <motion.p
@@ -76,10 +88,10 @@ export default function Hero() {
             variants={fadeUp} initial="hidden" animate="show" custom={3}
             className="flex gap-4 flex-wrap"
           >
-            <Button variant="brand" size="lg" icon={ArrowRight} className="flex-row-reverse" onClick={() => navigate("/login")}>
+            <Button variant="oceanSolid" size="lg" icon={ArrowRight} className="flex-row-reverse" onClick={() => navigate("/login")}>
               Get started
             </Button>
-            <Button as="a" href="#features" variant="outline" size="lg">
+            <Button as="a" href="#features" variant="outline" size="lg" className="hover:text-ocean-700">
               See how it works
             </Button>
           </motion.div>
@@ -91,7 +103,7 @@ export default function Hero() {
             {STATS.map(({ num, suffix, label }) => (
               <div key={label}>
                 <div className="text-3xl font-display font-bold text-ink">
-                  {num}<span className="text-brand-600">{suffix}</span>
+                  {num}<span className="text-ocean-600">{suffix}</span>
                 </div>
                 <div className="text-xs uppercase tracking-wider text-ink-faint mt-1">{label}</div>
               </div>
@@ -99,70 +111,72 @@ export default function Hero() {
           </motion.div>
         </div>
 
-        {/* Live-looking weekly schedule visual */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          className="relative"
-        >
+        {/* Live-looking weekly schedule visual — drifts gently on scroll */}
+        <motion.div style={{ y: visualY }} className="relative">
           <motion.div
-            animate={{ y: [0, -12, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="bg-white/75 backdrop-blur-xl rounded-3xl border border-white/60 shadow-glass overflow-hidden"
+            initial={{ opacity: 0, scale: 0.94, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="relative"
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-ink/[0.06]">
-              <div>
-                <p className="text-xs text-ink-faint font-medium">This week</p>
-                <p className="font-display font-semibold text-ink text-sm">Oct 12 – 16</p>
-              </div>
-              <div className="flex gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-300" />
-                <span className="w-2 h-2 rounded-full bg-amber-300" />
-                <span className="w-2 h-2 rounded-full bg-emerald-300" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-5 gap-px bg-ink/[0.04] px-3 pt-3">
-              {WEEK.map((d) => (
-                <div key={d} className="text-center text-[10px] font-semibold text-ink-faint pb-2">
-                  {d}
+            <motion.div
+              animate={{ y: [0, -12, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              className="bg-white/75 backdrop-blur-xl rounded-3xl border border-white/60 shadow-glass overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-ink/[0.06]">
+                <div>
+                  <p className="text-xs text-ink-faint font-medium">This week</p>
+                  <p className="font-display font-semibold text-ink text-sm">Oct 12 – 16</p>
                 </div>
-              ))}
-            </div>
-
-            <div className="relative grid grid-cols-5 gap-2 px-3 pb-4 h-[220px]">
-              {WEEK.map((_, i) => (
-                <div key={i} className="relative h-full rounded-lg bg-ink/[0.02]">
-                  {SCHEDULE.filter((s) => s.day === i).map((s, j) => (
-                    <motion.div
-                      key={j}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.6 + i * 0.07 }}
-                      className={`absolute left-1 right-1 rounded-md px-1.5 py-1 text-[9px] font-semibold text-white leading-tight ${s.color}`}
-                      style={{ top: s.top, height: s.height }}
-                    >
-                      {s.label}
-                    </motion.div>
-                  ))}
+                <div className="flex gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-300" />
+                  <span className="w-2 h-2 rounded-full bg-amber-300" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-300" />
                 </div>
-              ))}
-            </div>
-          </motion.div>
+              </div>
 
-          {/* floating badge */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, x: -10 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 1, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute -left-8 bottom-8 bg-white/80 backdrop-blur-xl rounded-2xl border border-white/60 shadow-glass px-4 py-3 hidden sm:block"
-          >
-            <p className="text-[10px] text-ink-faint font-medium">Synced live</p>
-            <p className="text-sm font-display font-semibold text-ink flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-              Updated just now
-            </p>
+              <div className="grid grid-cols-5 gap-px bg-ink/[0.04] px-3 pt-3">
+                {WEEK.map((d) => (
+                  <div key={d} className="text-center text-[10px] font-semibold text-ink-faint pb-2">
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div className="relative grid grid-cols-5 gap-2 px-3 pb-4 h-[220px]">
+                {WEEK.map((_, i) => (
+                  <div key={i} className="relative h-full rounded-lg bg-ink/[0.02]">
+                    {SCHEDULE.filter((s) => s.day === i).map((s, j) => (
+                      <motion.div
+                        key={j}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.6 + i * 0.07 }}
+                        className={`absolute left-1 right-1 rounded-md px-1.5 py-1 text-[9px] font-semibold text-white leading-tight ${s.color}`}
+                        style={{ top: s.top, height: s.height }}
+                      >
+                        {s.label}
+                      </motion.div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* floating badge */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, x: -10 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 1, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute -left-8 bottom-8 bg-white/80 backdrop-blur-xl rounded-2xl border border-white/60 shadow-glass px-4 py-3 hidden sm:block"
+            >
+              <p className="text-[10px] text-ink-faint font-medium">Synced live</p>
+              <p className="text-sm font-display font-semibold text-ink flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                Updated just now
+              </p>
+            </motion.div>
           </motion.div>
         </motion.div>
       </div>

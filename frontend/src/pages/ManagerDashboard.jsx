@@ -9,22 +9,39 @@ import {
 
 import dashboardService from "../services/dashboardService";
 import StatCard from "../components/StatCard";
+import StatGrid from "../components/ui/StatGrid";
 import PageHeader from "../components/ui/PageHeader";
 import BarChartCard from "../components/charts/BarChartCard";
+import DonutChartCard from "../components/charts/DonutChartCard";
+import { useSeriesColor } from "../components/charts/useSeriesColor";
 import { SkeletonRows } from "../components/ui/Skeleton";
 import ErrorState from "../components/ui/ErrorState";
+import { fadeUp } from "../utils/motionVariants";
 
 const TONES = ['ocean', 'success', 'violet', 'warning'];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
+// Batches are unbounded, so the pie only ever spends the validated 4-slot
+// categorical theme on the biggest batches (already sorted desc by the
+// backend) and folds the rest into one "Other" slice — never cycles the
+// palette past what's been colorblind-validated (see chartColors.js).
+// Takes the theme-resolved palette as params since this runs outside the
+// component (where hooks like useSeriesColor can't be called).
+function batchesToDonutData(studentsPerBatch, categoricalTheme, neutralColor) {
+  const top = studentsPerBatch.slice(0, categoricalTheme.length);
+  const rest = studentsPerBatch.slice(categoricalTheme.length);
+  const otherCount = rest.reduce((sum, b) => sum + b.student_count, 0);
+
+  const slices = top.map((b, i) => ({
+    name: b.batch__name, value: b.student_count, color: categoricalTheme[i],
+  }));
+  if (otherCount > 0) {
+    slices.push({ name: 'Other', value: otherCount, color: neutralColor });
+  }
+  return slices;
+}
 
 export default function ManagerDashboard() {
+  const { color: SERIES_COLOR, categorical: CATEGORICAL_THEME } = useSeriesColor();
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -71,6 +88,7 @@ export default function ManagerDashboard() {
   const educatorsPerCourseChart = (educators_per_course ?? []).map((i) => ({
     name: i.course__name, value: i.educator_count,
   }));
+  const studentsPerBatchDonut = batchesToDonutData(students_per_batch ?? [], CATEGORICAL_THEME, SERIES_COLOR.neutral);
 
   const stats = [
     { label: "Courses",   value: summary.total_courses,   icon: BookOpen },
@@ -86,21 +104,19 @@ export default function ManagerDashboard() {
         subtitle={`Operational overview of ${summary.institution_name}`}
       />
 
-      <motion.div
-        variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-5"
-      >
+      <StatGrid custom={0}>
         {stats.map((s, i) => (
           <StatCard key={s.label} {...s} tone={TONES[i]} />
         ))}
-      </motion.div>
+      </StatGrid>
 
       <motion.div
         variants={fadeUp} initial="hidden" animate="show" custom={1}
-        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
       >
-        <BarChartCard title="Students per batch" icon={Users} data={studentsPerBatchChart} color="#00A0F5" />
-        <BarChartCard title="Educators per course" icon={GraduationCap} data={educatorsPerCourseChart} color="#1F9D6C" />
+        <BarChartCard title="Students per batch" icon={Users} data={studentsPerBatchChart} color={SERIES_COLOR.ocean} />
+        <BarChartCard title="Educators per course" icon={GraduationCap} data={educatorsPerCourseChart} color={SERIES_COLOR.success} />
+        <DonutChartCard title="Batches by size" icon={Layers} data={studentsPerBatchDonut} />
       </motion.div>
     </div>
   );

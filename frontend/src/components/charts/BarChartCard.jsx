@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { motion } from 'framer-motion';
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from 'recharts';
 import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
@@ -11,11 +11,15 @@ import { CHART_COLORS } from './chartColors';
 import ChartTooltip from './ChartTooltip';
 
 /**
- * data: [{ name, value }]
+ * Single series: data: [{ name, value }], with `color` as the fill.
+ * Multiple stacked series: data: [{ name, [series[i].key]: number, ... }],
+ * with `series: [{ key, name, color }]` instead of `color` — used to break a
+ * total down by category (e.g. events vs activities) in one bar per name.
  */
-export default function BarChartCard({ title, icon: Icon = BarChart3, data = [], color = '#00A0F5', height = 220 }) {
+export default function BarChartCard({ title, icon: Icon = BarChart3, data = [], color = '#00A0F5', height = 220, series }) {
   const { theme } = useTheme();
   const c = CHART_COLORS[theme];
+  const isStacked = Array.isArray(series) && series.length > 0;
   // useId() includes colons (e.g. ":r0:"), which break when referenced via
   // url(#id) in SVG fill/filter attributes — strip them.
   const gradientId = `barFill-${useId().replace(/:/g, '')}`;
@@ -57,14 +61,40 @@ export default function BarChartCard({ title, icon: Icon = BarChart3, data = [],
               />
               <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: c.cursor, radius: 8 }} />
-              <Bar
-                dataKey="value"
-                fill={`url(#${gradientId})`}
-                radius={[8, 8, 3, 3]}
-                maxBarSize={34}
-                animationDuration={700}
-                animationEasing="ease-out"
-              />
+              {isStacked && (
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                  formatter={(value) => <span style={{ color: c.tick }}>{value}</span>}
+                />
+              )}
+              {isStacked ? (
+                series.map((s, i) => (
+                  <Bar
+                    key={s.key}
+                    dataKey={s.key}
+                    name={s.name}
+                    stackId="stack"
+                    fill={s.color}
+                    stroke={c.surface}
+                    strokeWidth={2}
+                    radius={i === series.length - 1 ? [8, 8, 3, 3] : 0}
+                    maxBarSize={34}
+                    animationDuration={700}
+                    animationEasing="ease-out"
+                  />
+                ))
+              ) : (
+                <Bar
+                  dataKey="value"
+                  fill={`url(#${gradientId})`}
+                  radius={[8, 8, 3, 3]}
+                  maxBarSize={34}
+                  animationDuration={700}
+                  animationEasing="ease-out"
+                />
+              )}
             </BarChart>
           </ResponsiveContainer>
         </motion.div>

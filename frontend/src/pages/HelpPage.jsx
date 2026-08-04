@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { LifeBuoy, Send, HelpCircle } from 'lucide-react';
 import complaintService from '../services/complaintService';
+import dashboardService from '../services/dashboardService';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import PageHeader from '../components/ui/PageHeader';
 import EmptyState from '../components/ui/EmptyState';
 import { SkeletonRows } from '../components/ui/Skeleton';
 import { useToast } from '../components/ui/Toast';
+import { usePermissions } from '../auth/PermissionsContext';
 
 const TYPE_BADGE = {
   COMPLAINT: { tone: 'danger', label: 'Complaint' },
@@ -22,11 +24,15 @@ const STATUS_BADGE = {
 
 export default function HelpPage() {
   const toast = useToast();
+  const { user } = usePermissions();
+  const isParent = user?.role === 'PARENT';
+
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [form, setForm] = useState({ type: 'HELP', subject: '', message: '' });
+  const [children, setChildren] = useState([]);
+  const [form, setForm] = useState({ type: 'HELP', subject: '', message: '', student_id: '' });
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -45,17 +51,32 @@ export default function HelpPage() {
     return () => { ignore = true; };
   }, [reloadKey]);
 
+  useEffect(() => {
+    if (!isParent) return;
+    let ignore = false;
+    dashboardService.getParentDashboard()
+      .then((data) => { if (!ignore) setChildren(data.children ?? []); })
+      .catch(() => { if (!ignore) setChildren([]); });
+    return () => { ignore = true; };
+  }, [isParent]);
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.subject.trim() || !form.message.trim()) {
       toast.error('Please fill in both subject and message.');
       return;
     }
+    if (isParent && !form.student_id) {
+      toast.error('Please select which child this concern is about.');
+      return;
+    }
     setSubmitting(true);
     try {
       await complaintService.create(form);
-      toast.success('Message submitted. The super admin will get back to you.');
-      setForm({ type: 'HELP', subject: '', message: '' });
+      toast.success(isParent
+        ? 'Message submitted. Your institution manager will get back to you.'
+        : 'Message submitted. The super admin will get back to you.');
+      setForm({ type: 'HELP', subject: '', message: '', student_id: '' });
       setReloadKey((k) => k + 1);
     } catch {
       toast.error('Failed to submit your message.');
@@ -66,7 +87,12 @@ export default function HelpPage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <PageHeader title="Help & Complaints" subtitle="Ask a question or raise a complaint — the super admin will respond here." />
+      <PageHeader
+        title="Help & Complaints"
+        subtitle={isParent
+          ? "Ask a question or raise a concern about your child — your institution's manager will respond here."
+          : 'Ask a question or raise a complaint — the super admin will respond here.'}
+      />
 
       <Card className="mb-8">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -81,6 +107,22 @@ export default function HelpPage() {
               <option value="COMPLAINT">Complaint</option>
             </select>
           </div>
+
+          {isParent && (
+            <div>
+              <label className="text-xs font-medium text-ink-faint block mb-1.5">Which child is this about?</label>
+              <select
+                value={form.student_id}
+                onChange={(e) => setForm((f) => ({ ...f, student_id: e.target.value }))}
+                className="w-full sm:w-64 px-3 py-2 text-sm rounded-xl border border-ink/10 bg-paper-soft focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+              >
+                <option value="">Select a child</option>
+                {children.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="text-xs font-medium text-ink-faint block mb-1.5">Subject</label>

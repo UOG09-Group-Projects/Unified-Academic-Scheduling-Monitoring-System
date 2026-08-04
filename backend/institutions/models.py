@@ -1,4 +1,5 @@
 from django.db import models
+import re
 import uuid
 import hashlib
 
@@ -79,6 +80,12 @@ class User(models.Model):
     email_verify_token    = models.CharField(max_length=64, null=True, blank=True)
     password_reset_token  = models.CharField(max_length=64, null=True, blank=True)
     password_reset_expiry = models.DateTimeField(null=True, blank=True)
+    # OTP-based email verification for self-service student signup (see
+    # institutions/email_utils.py::send_otp_email and students/services.py).
+    otp_code              = models.CharField(max_length=6, null=True, blank=True)
+    otp_expiry            = models.DateTimeField(null=True, blank=True)
+    otp_sent_at           = models.DateTimeField(null=True, blank=True)
+    otp_attempts          = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         db_table = 'user'
@@ -124,6 +131,15 @@ class Institution(models.Model):
     # approves them; institutions created by an already-authenticated
     # SUPER_ADMIN/OWNER/MANAGER default to APPROVED (no review needed).
     status     = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
+    # Shown to the OWNER/MANAGER, entered by prospective students at signup
+    # to prove they belong to this institution (see students/services.py).
+    join_code  = models.CharField(max_length=10, unique=True, null=True, blank=True)
+    # Bounds how far TimetableSlot (weekday + time, no dates) gets projected
+    # onto the calendar as recurring class occurrences — see
+    # frontend/src/utils/timetableEvents.js. Null until an OWNER/MANAGER
+    # sets them, in which case the timetable simply doesn't appear yet.
+    semester_start = models.DateField(null=True, blank=True)
+    semester_end   = models.DateField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -133,6 +149,25 @@ class Institution(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def short_name(self):
+        """
+        Abbreviation derived from this institution's name, used as the
+        prefix for auto-generated student registration numbers (see
+        students/services.py::StudentService.register_student). Multi-word
+        names use initials, e.g. "Cambridge International School" -> "CIS";
+        single-word names are kept as-is up to 6 characters, e.g.
+        "SLIIT" -> "SLIIT", "Greenfield" -> "GREENF".
+        """
+        words = re.findall(r'[A-Za-z0-9]+', self.name)[:6]
+        if len(words) > 1:
+            abbr = ''.join(word[0] for word in words).upper()
+        elif words:
+            abbr = words[0][:6].upper()
+        else:
+            abbr = ''
+        return abbr or 'INST'
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +269,12 @@ class Guardian(models.Model):
 # ---------------------------------------------------------------------------
 
 class Student(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING',  'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+
     name            = models.CharField(max_length=50)
     institution     = models.ForeignKey(
         Institution,
@@ -256,6 +297,10 @@ class Student(models.Model):
         null=True, blank=True,
         related_name='student_profile'
     )
+    # Self-registered students start PENDING until the institution's
+    # OWNER/MANAGER approves them (see students/services.py); students
+    # created directly by staff default to APPROVED (pre-vetted).
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
     is_deleted      = models.BooleanField(default=False)
     created_at      = models.DateTimeField(auto_now_add=True)
     updated_at      = models.DateTimeField(auto_now=True)
@@ -366,6 +411,12 @@ class Activity(models.Model):
 
 
 class Progress(models.Model):
+    STATUS_CHOICES = [
+        ('not_started', 'Not started'),
+        ('in_progress', 'In progress'),
+        ('completed',   'Completed'),
+    ]
+
     student      = models.ForeignKey(
         Student, on_delete=models.CASCADE, related_name='progress_records'
     )
@@ -373,16 +424,37 @@ class Progress(models.Model):
         Activity, on_delete=models.CASCADE, related_name='progress_records'
     )
     # Educator-assigned grade — nullable so a row can exist purely from a
-    # student's own completed/completed_at self-report, before any grading.
+    # student's own status self-report, before any grading.
     value        = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
-    # Student-controlled "I did this" flag — independent of the educator's
-    # grade above; toggling it never touches `value`.
-    completed    = models.BooleanField(default=False)
-    completed_at = models.DateTimeField(null=True, blank=True)
+    # Student-controlled status — independent of the educator's grade above;
+    # changing it never touches `value`.
+    status             = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_started')
+    status_updated_at  = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table        = 'progress'
         unique_together = ('student', 'activity')
+
+
+class DueSoonReminder(models.Model):
+    """
+    Marks that a "due soon" reminder was already sent for this
+    activity+student pair, so the periodic due-date checker
+    (activities/services.py::check_due_soon_activities) doesn't re-notify
+    the same student every time it runs while the activity stays in the
+    reminder window.
+    """
+    activity = models.ForeignKey(
+        Activity, on_delete=models.CASCADE, related_name='due_soon_reminders'
+    )
+    student  = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name='due_soon_reminders'
+    )
+    sent_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table        = 'activity_due_soon_reminders'
+        unique_together = ('activity', 'student')
 
 
 # ---------------------------------------------------------------------------
@@ -448,6 +520,10 @@ class ActivityLog(models.Model):
         ('EDUCATOR',    'Educator'),
         ('BATCH',       'Batch'),
         ('STUDENT',     'Student'),
+        # SUPER_ADMIN impersonation start/stop — see
+        # institutions/views.py::ImpersonateStartView/ImpersonateStopView.
+        ('AUTH',        'Authentication'),
+        ('ANNOUNCEMENT', 'Announcement'),
     ]
 
     # Who performed the action. Null for actions with no authenticated actor
@@ -533,6 +609,16 @@ class Complaint(models.Model):
         User, on_delete=models.CASCADE, related_name='complaints'
     )
 
+    # Set when a PARENT files this — lets it route to that institution's
+    # manager(s) instead of the platform-wide super admin inbox, and lets
+    # the manager see which child it's about. Always null for other roles.
+    institution = models.ForeignKey(
+        Institution, on_delete=models.SET_NULL, null=True, blank=True, related_name='complaints'
+    )
+    student = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name='complaints'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -605,3 +691,189 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{self.recipient.email}] {self.title}"
+
+
+# ---------------------------------------------------------------------------
+# Announcement — OWNER/MANAGER broadcast, institution-wide or per-batch
+# ---------------------------------------------------------------------------
+
+class Announcement(models.Model):
+    institution = models.ForeignKey(
+        Institution, on_delete=models.CASCADE, related_name='announcements'
+    )
+    # Null = institution-wide (every student + educator of the institution).
+    # Set = only that batch's students plus the educators teaching it.
+    batch       = models.ForeignKey(
+        Batch, on_delete=models.CASCADE, null=True, blank=True, related_name='announcements'
+    )
+    title       = models.CharField(max_length=150)
+    message     = models.CharField(max_length=1000)
+    created_by  = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='announcements'
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'announcements'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        scope = self.batch.name if self.batch_id else 'institution-wide'
+        return f"[{self.institution.name} / {scope}] {self.title}"
+
+
+# ---------------------------------------------------------------------------
+# ChatMessage — batch group chat (students in the same batch only)
+# ---------------------------------------------------------------------------
+
+class ChatMessage(models.Model):
+    batch      = models.ForeignKey(
+        Batch, on_delete=models.CASCADE, related_name='chat_messages'
+    )
+    # SET_NULL (not CASCADE) so chat history survives if the sender's
+    # account is later removed — same pattern as ActivityLog.actor.
+    sender     = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='chat_messages',
+    )
+    body       = models.CharField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'chat_messages'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"[batch {self.batch_id}] {self.sender_id}: {self.body[:30]}"
+
+
+# ---------------------------------------------------------------------------
+# Conversation / DirectMessage — 1:1 student <-> educator messaging
+# ---------------------------------------------------------------------------
+
+class Conversation(models.Model):
+    """One thread per (student, educator) pair — not per-course, so the
+    same educator teaching a student two courses is still one thread."""
+    student     = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name='conversations'
+    )
+    educator    = models.ForeignKey(
+        Educator, on_delete=models.CASCADE, related_name='conversations'
+    )
+    # Denormalized from student.institution — lets OWNER/MANAGER oversight
+    # queries scope by institution without an extra join, same reasoning
+    # as Event.institution.
+    institution = models.ForeignKey(
+        Institution, on_delete=models.CASCADE, related_name='conversations'
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'conversations'
+        unique_together = ('student', 'educator')
+
+    def __str__(self):
+        return f"{self.student.name} <-> {self.educator.name}"
+
+
+class DirectMessage(models.Model):
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.CASCADE, related_name='messages'
+    )
+    # SET_NULL (not CASCADE) so message history survives if the sender's
+    # account is later removed — same pattern as ChatMessage.sender.
+    sender       = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='direct_messages',
+    )
+    body         = models.CharField(max_length=2000)
+    # Set when the *other* participant opens the thread — drives the
+    # unread badge in the contact list. Oversight reads (OWNER/MANAGER)
+    # never touch this.
+    read_at      = models.DateTimeField(null=True, blank=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'direct_messages'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"[conversation {self.conversation_id}] {self.sender_id}: {self.body[:30]}"
+
+
+# ---------------------------------------------------------------------------
+# TimetableSlot — manager-built weekly timetable (weekday + time, no dates)
+# ---------------------------------------------------------------------------
+
+class TimetableSlot(models.Model):
+    WEEKDAY_CHOICES = [
+        (0, 'Monday'),
+        (1, 'Tuesday'),
+        (2, 'Wednesday'),
+        (3, 'Thursday'),
+        (4, 'Friday'),
+        (5, 'Saturday'),
+        (6, 'Sunday'),
+    ]
+
+    batch       = models.ForeignKey(
+        Batch, on_delete=models.CASCADE, related_name='timetable_slots'
+    )
+    course      = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name='timetable_slots'
+    )
+    educator    = models.ForeignKey(
+        Educator, on_delete=models.CASCADE, related_name='timetable_slots'
+    )
+    # Denormalized from batch.institution — lets list/scope queries filter
+    # by institution directly, same reasoning as Event/Conversation.
+    institution = models.ForeignKey(
+        Institution, on_delete=models.CASCADE, related_name='timetable_slots'
+    )
+    weekday     = models.IntegerField(choices=WEEKDAY_CHOICES)
+    start_time  = models.TimeField()
+    end_time    = models.TimeField()
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'timetable_slots'
+        ordering = ['weekday', 'start_time']
+
+    def __str__(self):
+        return f"{self.batch.name} - {self.course.name} ({self.get_weekday_display()} {self.start_time}-{self.end_time})"
+
+
+# ---------------------------------------------------------------------------
+# PlatformSettings — singleton row backing the SUPER_ADMIN settings page
+# ---------------------------------------------------------------------------
+
+class PlatformSettings(models.Model):
+    platform_name           = models.CharField(max_length=100, default='LightLearn')
+    support_email           = models.EmailField(blank=True, default='')
+    # Gates InstitutionRegisterView (institutions/views.py) — when False,
+    # new institutions can't self-register from the public landing page.
+    registration_open       = models.BooleanField(default=True)
+    # Gates MaintenanceModeMiddleware (institutions/middleware.py) — when
+    # True, every non-SUPER_ADMIN request (including anonymous) is blocked.
+    maintenance_mode        = models.BooleanField(default=False)
+    # Replaces the previously-hardcoded ACCESS_TOKEN_EXPIRY in jwt_utils.py.
+    session_timeout_minutes = models.PositiveIntegerField(default=60)
+    # Replaces the previously-hardcoded OTP_MAX_ATTEMPTS in email_utils.py.
+    otp_max_attempts        = models.PositiveSmallIntegerField(default=5)
+    updated_at               = models.DateTimeField(auto_now=True)
+    updated_by               = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
+    )
+
+    class Meta:
+        db_table = 'platform_settings'
+
+    def __str__(self):
+        return 'Platform settings'
+
+    @classmethod
+    def load(cls):
+        """Always exactly one row (pk=1) — the standard Django singleton pattern."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

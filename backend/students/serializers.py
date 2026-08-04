@@ -27,7 +27,7 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'email', 'phone',
             'registration_no', 'batch', 'batch_name',
-            'institution', 'institution_name',
+            'institution', 'institution_name', 'status',
             'guardians', 'guardian_count', 'is_deleted',
         ]
 
@@ -56,7 +56,7 @@ class StudentListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'email', 'phone',
             'registration_no', 'batch', 'batch_name',
-            'institution', 'institution_name', 'guardian_count',
+            'institution', 'institution_name', 'guardian_count', 'status',
         ]
 
     def get_batch_name(self, obj):

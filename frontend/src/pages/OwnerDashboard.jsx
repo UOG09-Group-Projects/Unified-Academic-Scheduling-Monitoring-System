@@ -6,23 +6,19 @@ import { fetchRoles } from "../services/roleService";
 import ownerUsersService from "../services/ownerUsersService";
 import PageHeader from "../components/ui/PageHeader";
 import StatCard from "../components/StatCard";
+import StatGrid from "../components/ui/StatGrid";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import BarChartCard from "../components/charts/BarChartCard";
 import DonutChartCard from "../components/charts/DonutChartCard";
+import { useSeriesColor } from "../components/charts/useSeriesColor";
 import { SkeletonRows } from "../components/ui/Skeleton";
 import ErrorState from "../components/ui/ErrorState";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
+import { fadeUp } from "../utils/motionVariants";
 
 export default function OwnerDashboard() {
+  const { color: SERIES_COLOR } = useSeriesColor();
   const [roles, setRoles] = useState([]);
   const [managers, setManagers] = useState([]);
   const [studentCount, setStudentCount] = useState(0);
@@ -84,24 +80,26 @@ export default function OwnerDashboard() {
     }));
 
   const rolesCoverageChart = [
-    { name: 'Configured', value: configuredRoles, color: '#00A0F5' },
-    { name: 'Not set up', value: roles.length - configuredRoles, color: '#CBD5E1' },
+    { name: 'Configured', value: configuredRoles, color: SERIES_COLOR.ocean },
+    { name: 'Not set up', value: roles.length - configuredRoles, color: SERIES_COLOR.neutral },
   ];
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto">
       <PageHeader title="Owner dashboard" subtitle="Managers, roles and access across your institution" />
 
-      <motion.div
-        variants={fadeUp} initial="hidden" animate="show" custom={0}
-        className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
-      >
+      <StatGrid custom={0} className="mb-6">
         <StatCard label="Managers" value={managers.length} tone="ocean" icon={Users} />
         <StatCard label="Educators" value={educatorCount} tone="success" icon={Presentation} />
         <StatCard label="Students" value={studentCount} tone="brand" icon={GraduationCap} />
         <StatCard label="Parents" value={parentCount} tone="danger" icon={Heart} />
         <StatCard label="Courses" value={courseCount} tone="warning" icon={BookOpen} />
         <StatCard label="Batches" value={batchCount} tone="ocean" icon={Layers3} />
+      </StatGrid>
+
+      {/* Featured on its own row — a progress metric reads better full-width
+          than squeezed into the plain-count grid above. */}
+      <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0.5} className="mb-10">
         <StatCard
           label="Roles with permissions set"
           value={`${coverage}%`}
@@ -116,7 +114,7 @@ export default function OwnerDashboard() {
         variants={fadeUp} initial="hidden" animate="show" custom={1}
         className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10"
       >
-        <BarChartCard title="Permissions per role" icon={ShieldCheck} data={permissionsPerRole} color="#00A0F5" />
+        <BarChartCard title="Permissions per role" icon={ShieldCheck} data={permissionsPerRole} color={SERIES_COLOR.ocean} />
         <DonutChartCard title="Roles configured" data={rolesCoverageChart} />
       </motion.div>
 

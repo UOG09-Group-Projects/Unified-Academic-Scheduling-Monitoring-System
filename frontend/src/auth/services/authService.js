@@ -16,16 +16,30 @@ const authService = {
     return res.data.user;
   },
 
-  studentSignup: async ({ name, email, password, institutionId }) => {
+  studentSignup: async ({ name, email, password, joinCode }) => {
+    // No session is created here — the account can't log in until the
+    // student verifies their email OTP and the institution approves them.
+    const res = await axios.post(`${API}/students/signup/`, {
+      name, email, password, join_code: joinCode,
+    });
+    return res.data;
+  },
+
+  verifyStudentOtp: async ({ email, code }) => {
     const res = await axios.post(
-      `${API}/students/signup/`,
-      { name, email, password, institution_id: institutionId },
+      `${API}/students/verify-otp/`,
+      { email, code },
       { withCredentials: true }  // browser stores the httpOnly cookie
     );
 
     setSession({ user: res.data.user, access: res.data.access, refresh: res.data.refresh });
 
     return res.data.user;
+  },
+
+  resendStudentOtp: async (email) => {
+    const res = await axios.post(`${API}/students/resend-otp/`, { email });
+    return res.data;
   },
 
   listPublicInstitutions: async () => {

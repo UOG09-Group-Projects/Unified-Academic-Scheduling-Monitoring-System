@@ -5,7 +5,8 @@ import {
   LayoutDashboard, Building2, BookOpen, Users,
   GraduationCap, Layers3, Settings, User, LogOut,
   FileText, TrendingUp, Menu, X, ShieldCheck,
-  HelpCircle, MessageSquare, ClipboardList, Wrench, BarChart3, Bell,
+  HelpCircle, MessageSquare, MessagesSquare, Mail, ClipboardList, Wrench, BarChart3, Bell, CalendarClock, CalendarDays,
+  Table2, Megaphone,
 } from 'lucide-react';
 import logo from '../assets/logoll.png';
 import { getStoredUser, clearSession } from '../services/authStorage';
@@ -13,6 +14,9 @@ import complaintService from '../services/complaintService';
 import contactService from '../services/contactService';
 import notificationService from '../services/notificationService';
 import usePolling from '../hooks/usePolling';
+import useLiveSocket from '../hooks/useLiveSocket';
+import { useToast } from '../components/ui/Toast';
+import { usePermissions } from '../auth/PermissionsContext';
 
 const MESSAGES_POLL_MS = 10000;
 const NOTIFICATIONS_POLL_MS = 10000;
@@ -31,6 +35,13 @@ const NAV_ITEMS = {
   ],
   OWNER: [
     { label: 'Dashboard',     path: '/dashboard/owner' },
+    { label: 'Institutions',  path: '/institutions' },
+    { label: 'Educators',     path: '/educators' },
+    { label: 'Students',      path: '/students' },
+    { label: 'Batches',       path: '/batches' },
+    { label: 'Announcements', path: '/announcements' },
+    { label: 'Messages',      path: '/messages' },
+    { label: 'Timetable',     path: '/timetable' },
     { label: 'Managers',      path: '/managers' },
     { label: 'Users',         path: '/owner/users' },
     { label: 'Roles',         path: '/roles' },
@@ -41,31 +52,45 @@ const NAV_ITEMS = {
   ],
   MANAGER: [
     { label: 'Dashboard',     path: '/dashboard/manager' },
+    { label: 'Institutions',  path: '/institutions' },
+    { label: 'Messages',      path: '/messages' },
+    { label: 'Timetable',     path: '/timetable' },
     { label: 'Courses',       path: '/courses' },
     { label: 'Educators',     path: '/educators' },
     { label: 'Students',      path: '/students' },
     { label: 'Batches',       path: '/batches' },
+    { label: 'Announcements', path: '/announcements' },
+    { label: 'Complaints & Help', path: '/manager/complaints' },
     { label: 'Notifications', path: '/notifications' },
     { label: 'Help',          path: '/help' },
     { label: 'Profile',       path: '/profile' },
   ],
   EDUCATOR: [
     { label: 'Dashboard',     path: '/dashboard/educator' },
+    { label: 'Messages',      path: '/messages' },
+    { label: 'Timetable',     path: '/timetable' },
     { label: 'Activities',    path: '/educator/activities' },
+    { label: 'Calendar',      path: '/calendar' },
     { label: 'Notifications', path: '/notifications' },
     { label: 'Help',          path: '/help' },
     { label: 'Profile',       path: '/profile' },
   ],
   STUDENT: [
     { label: 'Dashboard',     path: '/dashboard/student' },
+    { label: 'Batch Chat',    path: '/batch-chat' },
+    { label: 'Messages',      path: '/messages' },
+    { label: 'Timetable',     path: '/timetable' },
     { label: 'My Courses',    path: '/my-courses' },
     { label: 'Progress',      path: '/progress' },
+    { label: 'Workload',      path: '/workload' },
+    { label: 'Calendar',      path: '/calendar' },
     { label: 'Notifications', path: '/notifications' },
     { label: 'Help',          path: '/help' },
     { label: 'Profile',       path: '/profile' },
   ],
   PARENT: [
     { label: 'Dashboard',     path: '/dashboard/parent' },
+    { label: 'Calendar',      path: '/calendar' },
     { label: 'Notifications', path: '/notifications' },
     { label: 'Help',          path: '/help' },
     { label: 'Profile',       path: '/profile' },
@@ -93,22 +118,30 @@ const ICONS = {
   Settings:      Settings,
   Profile:       User,
   Progress:      TrendingUp,
+  Workload:      CalendarClock,
+  Calendar:      CalendarDays,
   Schedule:      LayoutDashboard,
   Managers:      Users,
   Users:         Users,
   Roles:         ShieldCheck,
   Help:          HelpCircle,
   'Complaints & Help': MessageSquare,
+  'Batch Chat':  MessagesSquare,
+  Messages:      Mail,
+  Timetable:     Table2,
   Activities:    ClipboardList,
   Maintenance:   Wrench,
   Analytics:     BarChart3,
   Notifications: Bell,
+  Announcements: Megaphone,
 };
 
 const SECONDARY = new Set(['Profile', 'Settings', 'Help', 'Notifications']);
 
 function SidebarContent({ onClose }) {
   const navigate = useNavigate();
+  const toast = useToast();
+  const { isImpersonating } = usePermissions();
 
   const user = getStoredUser() ?? {};
 
@@ -124,15 +157,17 @@ function SidebarContent({ onClose }) {
 
   const fetchUnopenedMessages = useCallback(async () => {
     try {
+      // Website inquiries are a platform-wide inbox — only super admins can
+      // see them, so managers (institution-scoped complaints only) skip that call.
       const [complaintStats, inquiryStats] = await Promise.all([
         complaintService.getStats(),
-        contactService.getStats(),
+        role === 'SUPER_ADMIN' ? contactService.getStats() : Promise.resolve({ new: 0 }),
       ]);
       setUnopenedMessages((complaintStats.open ?? 0) + (inquiryStats.new ?? 0));
     } catch {
       // silent on background polls
     }
-  }, []);
+  }, [role]);
 
   const fetchUnreadNotifications = useCallback(async () => {
     try {
@@ -143,10 +178,24 @@ function SidebarContent({ onClose }) {
     }
   }, []);
 
-  usePolling(fetchUnopenedMessages, MESSAGES_POLL_MS, role !== 'SUPER_ADMIN');
-  usePolling(fetchUnreadNotifications, NOTIFICATIONS_POLL_MS);
+  // These fetch real per-institution/per-user counts independently of
+  // routing, so the DashboardLayout content swap doesn't cover them — paused
+  // directly here while impersonating.
+  usePolling(fetchUnopenedMessages, MESSAGES_POLL_MS, isImpersonating || (role !== 'SUPER_ADMIN' && role !== 'MANAGER'));
+  usePolling(fetchUnreadNotifications, NOTIFICATIONS_POLL_MS, isImpersonating);
+
+  // Instant badge + toast the moment a notification is created — polling
+  // above is just the fallback if this socket can't connect.
+  useLiveSocket({
+    onNotification: (data) => {
+      if (isImpersonating) return;
+      toast.info(data.title);
+      fetchUnreadNotifications();
+    },
+  });
 
   function badgeFor(label) {
+    if (isImpersonating) return 0;
     if (label === 'Complaints & Help') return unopenedMessages;
     if (label === 'Notifications') return unreadNotifications;
     return 0;
