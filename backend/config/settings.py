@@ -131,9 +131,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",
     #"http://localhost:5175",
     "http://20.235.105.26",
+    "https://20.235.105.26",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://20.235.105.26",
+    "https://20.235.105.26",
 ]
 # Exposes the filename on file-download responses (e.g. the maintenance
 # report CSV) — browsers hide response headers from JS on cross-origin
