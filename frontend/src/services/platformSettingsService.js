@@ -1,6 +1,7 @@
 import { authHeader } from './authStorage';
+import { API_BASE_URL } from './apiConfig';
 
-const BASE_URL = 'http://localhost:8000/api/institutions/settings';
+const BASE_URL = `${API_BASE_URL}/api/institutions/settings`;
 
 const platformSettingsService = {
   get: async () => {

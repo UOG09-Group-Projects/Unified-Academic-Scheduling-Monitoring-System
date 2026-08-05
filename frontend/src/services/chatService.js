@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { getAccessToken } from './authStorage';
+import { API_BASE_URL } from './apiConfig';
 
 const client = axios.create({
-  baseURL: 'http://localhost:8000/api/chat',
+  baseURL: `${API_BASE_URL}/api/chat`,
   withCredentials: true,
 });
 

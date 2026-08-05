@@ -4,6 +4,7 @@ import axios from "axios";
 import AuthShell from "./AuthShell";
 import { Input } from "../components/ui/Field";
 import Button from "../components/ui/Button";
+import { API_BASE_URL } from "../services/apiConfig";
 
 export default function ResetPassword() {
   const { token } = useParams();
@@ -20,7 +21,7 @@ export default function ResetPassword() {
     setError(null);
 
     try {
-      await axios.post("http://localhost:8000/api/auth/reset-password/", { token, password });
+      await axios.post(`${API_BASE_URL}/api/auth/reset-password/`, { token, password });
       setSuccess(true);
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {

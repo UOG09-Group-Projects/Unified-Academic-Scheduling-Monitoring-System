@@ -1,6 +1,7 @@
 import { authHeader } from './authStorage';
+import { API_BASE_URL } from './apiConfig';
 
-const BASE_URL = 'http://localhost:8000/api/institutions/impersonate';
+const BASE_URL = `${API_BASE_URL}/api/institutions/impersonate`;
 
 const impersonationService = {
   start: async (email) => {

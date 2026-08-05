@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Mail, CheckCircle2, XCircle } from 'lucide-react';
 import AuthShell from './AuthShell';
 import Button from '../components/ui/Button';
+import { API_BASE_URL } from '../services/apiConfig';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -17,7 +18,7 @@ export default function VerifyEmailPage() {
 
     async function verify() {
       try {
-        const res = await axios.post('http://localhost:8000/api/auth/verify-email/', { token });
+        const res = await axios.post(`${API_BASE_URL}/api/auth/verify-email/`, { token });
         setMessage(res.data.message);
         setStatus('success');
       } catch (err) {

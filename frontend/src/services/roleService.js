@@ -1,6 +1,7 @@
 import { authHeader } from './authStorage';
+import { API_BASE_URL } from './apiConfig';
 
-const BASE_URL = 'http://localhost:8000/api/institutions';
+const BASE_URL = `${API_BASE_URL}/api/institutions`;
 
 export async function fetchRoles() {
   const res = await fetch(`${BASE_URL}/roles/`, { credentials: "include", headers: { ...authHeader() } });

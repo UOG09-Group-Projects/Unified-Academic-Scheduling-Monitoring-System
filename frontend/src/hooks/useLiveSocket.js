@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { getAccessToken } from '../services/authStorage';
+import { WS_BASE_URL } from '../services/apiConfig';
 
-const WS_URL = 'ws://localhost:8000/ws/calendar/';
+const WS_URL = `${WS_BASE_URL}/ws/calendar/`;
 const RECONNECT_MS = 3000;
 
 /**

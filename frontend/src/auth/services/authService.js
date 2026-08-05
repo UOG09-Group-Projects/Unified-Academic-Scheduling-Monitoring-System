@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { setSession, clearSession, getStoredUser } from '../../services/authStorage';
+import { API_BASE_URL } from '../../services/apiConfig';
 
-const API = 'http://localhost:8000/api';
+const API = `${API_BASE_URL}/api`;
 
 const authService = {
   login: async (email, password) => {

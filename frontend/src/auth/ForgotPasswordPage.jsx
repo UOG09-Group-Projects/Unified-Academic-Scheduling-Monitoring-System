@@ -6,6 +6,7 @@ import AuthShell from "./AuthShell";
 import { Input } from "../components/ui/Field";
 import Button from "../components/ui/Button";
 import { CheckCircle2 } from "lucide-react";
+import { API_BASE_URL } from "../services/apiConfig";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export default function ForgotPassword() {
     setError(null);
 
     try {
-      await axios.post("http://localhost:8000/api/auth/forgot-password/", { email });
+      await axios.post(`${API_BASE_URL}/api/auth/forgot-password/`, { email });
       setSent(true);
     } catch (err) {
       setError(err.response?.data?.error || "Something went wrong. Please try again.");

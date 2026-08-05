@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { getAccessToken } from './authStorage';
+import { API_BASE_URL } from './apiConfig';
 
-const API = 'http://localhost:8000/api';
+const API = `${API_BASE_URL}/api`;
 
 const client = axios.create({
   baseURL: API,

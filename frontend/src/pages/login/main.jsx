@@ -6,6 +6,7 @@ import { AuthProvider } from "../../auth/context/AuthProvider";
 import authService from "../../auth/services/authService";
 import LoginPage from "../LoginPage";
 import ProtectedRoute from '../../auth/ProtectedRoute';
+import { API_BASE_URL } from '../../services/apiConfig';
 
 // ── Axios interceptors ──────────────────────────────────────────
 // Auto-attach access token to every request
@@ -25,7 +26,7 @@ axios.interceptors.response.use(
       try {
         const refresh = authService.getRefreshToken();
         const res = await axios.post(
-          'http://localhost:8000/api/auth/refresh/',
+          `${API_BASE_URL}/api/auth/refresh/`,
           { refresh }
         );
         localStorage.setItem('access_token', res.data.access);
