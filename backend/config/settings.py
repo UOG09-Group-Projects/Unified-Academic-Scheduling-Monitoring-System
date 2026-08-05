@@ -31,7 +31,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['20.235.105.26', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['20.235.105.26', 'app.20.235.105.26.sslip.io', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -132,10 +132,12 @@ CORS_ALLOWED_ORIGINS = [
     #"http://localhost:5175",
     "http://20.235.105.26",
     "https://20.235.105.26",
+    "https://app.20.235.105.26.sslip.io",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://20.235.105.26",
     "https://20.235.105.26",
+    "https://app.20.235.105.26.sslip.io",
 ]
 # Exposes the filename on file-download responses (e.g. the maintenance
 # report CSV) — browsers hide response headers from JS on cross-origin
