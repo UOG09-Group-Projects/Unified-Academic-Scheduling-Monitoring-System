@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "./ui/Button";
+import { fadeUp, EVENT_COLOR } from "./landingConstants";
 
 const STATS = [
   { num: "50", suffix: "K+", label: "Students served" },
@@ -14,20 +15,12 @@ const WEEK = ["MON", "TUE", "WED", "THU", "FRI"];
 // Reuses the exact event-type colors the real dashboard calendar uses —
 // so the hero preview looks like the actual product, not a generic mockup.
 const SCHEDULE = [
-  { day: 0, top: "12%", height: "18%", color: "bg-event-class", label: "Data Structures" },
-  { day: 1, top: "34%", height: "14%", color: "bg-event-meeting", label: "Lab · Physics" },
-  { day: 2, top: "10%", height: "22%", color: "bg-event-holiday", label: "Algorithms" },
-  { day: 3, top: "40%", height: "16%", color: "bg-event-assignment", label: "Seminar" },
-  { day: 4, top: "18%", height: "18%", color: "bg-event-class", label: "Review Session" },
+  { day: 0, top: "12%", height: "18%", color: EVENT_COLOR.class, label: "Data Structures" },
+  { day: 1, top: "34%", height: "14%", color: EVENT_COLOR.meeting, label: "Lab · Physics" },
+  { day: 2, top: "10%", height: "22%", color: EVENT_COLOR.holiday, label: "Algorithms" },
+  { day: 3, top: "40%", height: "16%", color: EVENT_COLOR.assignment, label: "Seminar" },
+  { day: 4, top: "18%", height: "18%", color: EVENT_COLOR.class, label: "Review Session" },
 ];
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 22 },
-  show: (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
 
 export default function Hero() {
   const navigate = useNavigate();
@@ -45,10 +38,12 @@ export default function Hero() {
     >
       {/* ambient ocean-blue shapes — solid tints (no gradient), drifting on scroll */}
       <motion.div
+        aria-hidden="true"
         style={{ y: blobOneY }}
         className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-ocean-200/40 blur-3xl pointer-events-none"
       />
       <motion.div
+        aria-hidden="true"
         style={{ y: blobTwoY }}
         className="absolute bottom-0 -left-32 w-[360px] h-[360px] rounded-full bg-ocean-100/60 blur-3xl pointer-events-none"
       />
@@ -120,7 +115,8 @@ export default function Hero() {
             className="relative"
           >
             <motion.div
-              animate={{ y: [0, -12, 0] }}
+              whileInView={{ y: [0, -12, 0] }}
+              viewport={{ amount: 0.3 }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               className="bg-white/75 backdrop-blur-xl rounded-3xl border border-white/60 shadow-glass overflow-hidden"
             >
@@ -130,9 +126,9 @@ export default function Hero() {
                   <p className="font-display font-semibold text-ink text-sm">Oct 12 – 16</p>
                 </div>
                 <div className="flex gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-300" />
-                  <span className="w-2 h-2 rounded-full bg-amber-300" />
-                  <span className="w-2 h-2 rounded-full bg-emerald-300" />
+                  <span className="w-2 h-2 rounded-full bg-danger/60" />
+                  <span className="w-2 h-2 rounded-full bg-warning/60" />
+                  <span className="w-2 h-2 rounded-full bg-success/60" />
                 </div>
               </div>
 
@@ -153,10 +149,10 @@ export default function Hero() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.6 + i * 0.07 }}
-                        className={`absolute left-1 right-1 rounded-md px-1.5 py-1 text-[9px] font-semibold text-white leading-tight ${s.color}`}
+                        className={`absolute left-1 right-1 rounded-md px-1.5 py-1 text-[9px] font-semibold text-white leading-tight overflow-hidden ${s.color}`}
                         style={{ top: s.top, height: s.height }}
                       >
-                        {s.label}
+                        <span className="line-clamp-2">{s.label}</span>
                       </motion.div>
                     ))}
                   </div>

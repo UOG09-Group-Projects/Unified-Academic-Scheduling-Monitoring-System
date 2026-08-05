@@ -93,6 +93,7 @@ const NAV_ITEMS = {
     { label: 'Calendar',      path: '/calendar' },
     { label: 'Notifications', path: '/notifications' },
     { label: 'Help',          path: '/help' },
+    { label: 'Preferences',   path: '/parent/preferences' },
     { label: 'Profile',       path: '/profile' },
   ],
 };
@@ -125,6 +126,7 @@ const ICONS = {
   Users:         Users,
   Roles:         ShieldCheck,
   Help:          HelpCircle,
+  Preferences:   Settings,
   'Complaints & Help': MessageSquare,
   'Batch Chat':  MessagesSquare,
   Messages:      Mail,
@@ -136,7 +138,7 @@ const ICONS = {
   Announcements: Megaphone,
 };
 
-const SECONDARY = new Set(['Profile', 'Settings', 'Help', 'Notifications']);
+const SECONDARY = new Set(['Profile', 'Settings', 'Help', 'Notifications', 'Preferences']);
 
 function SidebarContent({ onClose }) {
   const navigate = useNavigate();
@@ -221,9 +223,7 @@ function SidebarContent({ onClose }) {
       <div className="relative z-10 flex flex-col h-full">
         <div className="flex items-center justify-between gap-3 border-b border-white/15 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/25 backdrop-blur-sm flex items-center justify-center overflow-hidden flex-shrink-0">
-              <img src={logo} alt="LightLearn" className="w-7 h-7 object-contain" />
-            </div>
+            <img src={logo} alt="LightLearn" className="w-9 h-9 rounded-xl object-cover shadow-soft flex-shrink-0" />
             <div>
               <h1 className="text-white text-[13px] font-display font-semibold leading-none mb-1 drop-shadow-sm">
                 LightLearn

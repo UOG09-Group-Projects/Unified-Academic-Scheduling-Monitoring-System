@@ -1,7 +1,7 @@
 import secrets
 import uuid
 import datetime
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 
 OTP_VALID_MINUTES  = 10
@@ -77,6 +77,39 @@ If you did not expect this email, please ignore it.
         fail_silently=False,
     )
     return token
+
+
+def send_monthly_report_email(guardian, period_label, attachments):
+    """Email a guardian their children's monthly reports (one PDF per
+    child) — the automatic counterpart to the on-demand download in
+    auth/dashboard_views.py::parent_monthly_report. `attachments` is a list
+    of (filename, pdf_bytes, student_name) tuples, built by
+    institutions/scheduler.py::send_due_monthly_reports.
+    """
+    recipient = guardian.user.email if guardian.user_id else guardian.email
+    if not recipient:
+        return
+
+    names = ', '.join(name for _, _, name in attachments)
+    message = f"""
+Hi {guardian.name},
+
+Attached {'is' if len(attachments) == 1 else 'are'} your {period_label} monthly report{'s' if len(attachments) != 1 else ''} for {names}.
+
+You can also view these anytime by logging in to LightLearn.
+
+— LightLearn Team
+    """
+
+    email = EmailMessage(
+        subject=f'Your {period_label} monthly report',
+        body=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[recipient],
+    )
+    for filename, pdf_bytes, _ in attachments:
+        email.attach(filename, pdf_bytes, 'application/pdf')
+    email.send(fail_silently=False)
 
 
 def send_password_reset_email(user):

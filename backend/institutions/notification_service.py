@@ -1,7 +1,7 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db.models import Q
-from .models import Notification, User
+from .models import Notification, NotificationPreference, User
 
 
 def _push_live(recipient_id, title, message, link):
@@ -30,6 +30,14 @@ class NotificationService:
     activities/services.py, and events/services.py for the actual trigger
     points.
     """
+
+    @staticmethod
+    def wants(user, field):
+        """Whether `user` has this notification type enabled — opt-out, so a
+        user who's never touched their preferences still gets notified
+        (field defaults to True on the model)."""
+        prefs, _ = NotificationPreference.objects.get_or_create(user=user)
+        return getattr(prefs, field)
 
     @staticmethod
     def notify(recipient, title, message='', link=''):

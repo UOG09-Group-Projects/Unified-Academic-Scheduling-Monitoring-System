@@ -1,21 +1,32 @@
+import { lazy, Suspense } from "react";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
-import Features from "../components/Features";
-import Demo from "../components/Demo";
-import About from "../components/About";
-import Contact from "../components/Contact";
-import Footer from "../components/Footer";
+
+// Below-the-fold sections — code-split into separate chunks so the initial
+// bundle only has to parse/execute Navbar + Hero before first paint; these
+// chunks fetch in parallel right after and swap in via Suspense.
+const Features = lazy(() => import("../components/Features"));
+const Demo = lazy(() => import("../components/Demo"));
+const About = lazy(() => import("../components/About"));
+const Contact = lazy(() => import("../components/Contact"));
+const Footer = lazy(() => import("../components/Footer"));
 
 export default function Home() {
   return (
     <div className="font-sans bg-paper text-ink">
       <Navbar />
-      <Hero />
-      <Features />
-      <Demo />
-      <About />
-      <Contact />
-      <Footer />
+      <main>
+        <Hero />
+        <Suspense fallback={null}>
+          <Features />
+          <Demo />
+          <About />
+          <Contact />
+        </Suspense>
+      </main>
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </div>
   );
 }

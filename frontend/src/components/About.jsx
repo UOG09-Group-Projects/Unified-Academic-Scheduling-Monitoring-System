@@ -1,20 +1,14 @@
 import { Fragment } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
+import { EVENT_COLOR } from "./landingConstants";
 
 const MOCK_ROWS = [
-  { time: "08:00", cells: [{ type: "blue", text: "CS101\nLec A" }, null, { type: "green", text: "MATH2\nHall B" }, null, { type: "blue", text: "CS101\nLec A" }] },
-  { time: "10:00", cells: [null, { type: "amber", text: "ENG3\nRoom 4" }, null, { type: "blue", text: "CS201\nLab 1" }, null] },
-  { time: "13:00", cells: [{ type: "green", text: "PHY1\nHall C" }, null, { type: "amber", text: "ENG3\nRoom 4" }, null, { type: "green", text: "PHY1\nHall C" }] },
-  { time: "15:00", cells: [null, { type: "blue", text: "CS201\nLab 1" }, null, { type: "amber", text: "MATH2\nHall B" }, null] },
+  { time: "08:00", cells: [{ type: "class", text: "CS101\nLec A" }, null, { type: "holiday", text: "MATH2\nHall B" }, null, { type: "class", text: "CS101\nLec A" }] },
+  { time: "10:00", cells: [null, { type: "assignment", text: "ENG3\nRoom 4" }, null, { type: "class", text: "CS201\nLab 1" }, null] },
+  { time: "13:00", cells: [{ type: "holiday", text: "PHY1\nHall C" }, null, { type: "assignment", text: "ENG3\nRoom 4" }, null, { type: "holiday", text: "PHY1\nHall C" }] },
+  { time: "15:00", cells: [null, { type: "class", text: "CS201\nLab 1" }, null, { type: "assignment", text: "MATH2\nHall B" }, null] },
 ];
-
-// Reuses the real dashboard calendar's event-type colors.
-const EVENT_STYLES = {
-  blue: "bg-event-class text-white",
-  green: "bg-event-holiday text-white",
-  amber: "bg-event-assignment text-white",
-};
 
 const POINTS = [
   { title: "Zero-configuration onboarding", desc: "Import your existing data and go live within a day. No lengthy setup sprints required." },
@@ -62,7 +56,7 @@ export default function About() {
                   {cells.map((cell, i) => (
                     <div key={`${time}-${i}`} className="p-1 min-h-[42px] bg-white">
                       {cell && (
-                        <div className={`${EVENT_STYLES[cell.type]} rounded p-1 text-[0.58rem] font-semibold leading-[1.3] whitespace-pre-line shadow-sm`}>
+                        <div className={`${EVENT_COLOR[cell.type]} text-white rounded p-1 text-[0.58rem] font-semibold leading-[1.3] whitespace-pre-line shadow-sm overflow-hidden`}>
                           {cell.text}
                         </div>
                       )}

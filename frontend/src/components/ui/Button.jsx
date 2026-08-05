@@ -49,6 +49,7 @@ export default function Button({
       className={`inline-flex items-center justify-center font-semibold
         transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed
         disabled:pointer-events-none select-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-500/40 focus-visible:ring-offset-2
         ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
       {...props}
     >

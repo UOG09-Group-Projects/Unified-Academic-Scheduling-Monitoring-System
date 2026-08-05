@@ -41,6 +41,7 @@ import UserProfile from './pages/UserProfile';
 import HelpPage from './pages/HelpPage';
 import Messages from './pages/superadmin/Messages';
 import ManagerComplaints from './pages/manager/Complaints';
+import ParentPreferences from './pages/parent/Preferences';
 import Maintenance from './pages/superadmin/Maintenance';
 import OwnerMaintenance from './pages/owner/Maintenance';
 import OwnerUsers from './pages/owner/Users';
@@ -188,6 +189,7 @@ function App() {
 
           <Route path="/superadmin/messages" element={<Messages />} />
           <Route path="/manager/complaints" element={<ManagerComplaints />} />
+          <Route path="/parent/preferences" element={<ParentPreferences />} />
 
           <Route path="/superadmin/maintenance" element={<Maintenance />} />
 

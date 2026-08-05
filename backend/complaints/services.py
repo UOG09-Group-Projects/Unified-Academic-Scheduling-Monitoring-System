@@ -140,12 +140,13 @@ class ComplaintService:
         complaint.save()
 
         if 'reply' in data and (data.get('reply') or '').strip():
-            NotificationService.notify(
-                complaint.submitted_by,
-                title='Your message received a reply',
-                message=complaint.subject,
-                link='/help',
-            )
+            if NotificationService.wants(complaint.submitted_by, 'complaint_replies'):
+                NotificationService.notify(
+                    complaint.submitted_by,
+                    title='Your message received a reply',
+                    message=complaint.subject,
+                    link='/help',
+                )
 
         return complaint
 

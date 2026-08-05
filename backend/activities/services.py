@@ -92,6 +92,7 @@ def _notify_activity_created(activity, course):
         student_id__in=[s.id for s in students]
     ).select_related('guardian__user')
     guardian_users = {g.guardian.user for g in guardians if g.guardian.user_id}
+    guardian_users = {u for u in guardian_users if NotificationService.wants(u, 'activity_updates')}
 
     due_suffix = f' · due {activity.due_date}' if activity.due_date else ''
 

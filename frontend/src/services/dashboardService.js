@@ -54,6 +54,10 @@ const dashboardService = {
       params: { student_id: studentId, year, month, format: 'pdf' },
       responseType: 'blob',
     }),
+
+  getParentPreferences: () => client.get('/dashboard/parent/preferences/').then(r => r.data),
+  updateParentPreferences: (payload) =>
+    client.patch('/dashboard/parent/preferences/', payload).then(r => r.data),
 };
 
 export default dashboardService;

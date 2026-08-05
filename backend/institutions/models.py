@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 import re
 import uuid
 import hashlib
@@ -691,6 +692,46 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{self.recipient.email}] {self.title}"
+
+
+# ---------------------------------------------------------------------------
+# Parent preferences — which notifications to receive, and whether to get
+# monthly reports emailed automatically. Opt-out (defaults True/False chosen
+# so existing behavior is unchanged until a parent visits the preferences page).
+# ---------------------------------------------------------------------------
+
+class NotificationPreference(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='notification_preference')
+    activity_updates  = models.BooleanField(default=True)   # "New activity: ..."
+    complaint_replies = models.BooleanField(default=True)   # reply to a filed help/complaint
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notification_preferences'
+
+    def __str__(self):
+        return f"[{self.user.email}] notification preferences"
+
+
+class ReportSchedule(models.Model):
+    """One per guardian (not per child) — 'email me all my children's
+    monthly reports on day X' — checked daily by
+    institutions/scheduler.py::send_due_monthly_reports."""
+    guardian = models.OneToOneField(Guardian, on_delete=models.CASCADE, related_name='report_schedule')
+    enabled  = models.BooleanField(default=False)
+    day_of_month = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(28)]
+    )
+    # 'YYYY-MM' of the last month a report was actually sent — guards
+    # against sending twice if the job runs more than once on the same day.
+    last_sent_year_month = models.CharField(max_length=7, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'report_schedules'
+
+    def __str__(self):
+        return f"[{self.guardian.name}] report schedule (day {self.day_of_month})"
 
 
 # ---------------------------------------------------------------------------

@@ -50,7 +50,8 @@ urlpatterns = [
     path('api/dashboard/student/', dashboard_views.student_dashboard),
     path('api/dashboard/parent/', dashboard_views.parent_dashboard),
     path('api/dashboard/parent/report/', dashboard_views.parent_monthly_report),
-    
+    path('api/dashboard/parent/preferences/', dashboard_views.parent_preferences),
+
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

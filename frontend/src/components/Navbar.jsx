@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { GraduationCap, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "./ui/Button";
+import logo from "../assets/logoll.png";
 
 const NAV_LINKS = [
   { label: "Home", href: "#home" },
@@ -18,17 +19,44 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-      const sections = document.querySelectorAll("section[id]");
-      let current = "";
-      sections.forEach((s) => {
-        if (window.scrollY >= s.offsetTop - 120) current = s.id;
-      });
-      if (current) setActive(current);
-    };
-    window.addEventListener("scroll", handleScroll);
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Which section is "active" for the underline — an IntersectionObserver
+  // instead of a per-scroll-frame querySelectorAll + offset loop. Sections
+  // below the fold are code-split/lazy-loaded (see Home.jsx), so a
+  // MutationObserver picks up section[id] elements that mount after this
+  // effect first runs.
+  useEffect(() => {
+    const observed = new Set();
+    const sectionObserver = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.find((e) => e.isIntersecting);
+        if (visible) setActive(visible.target.id);
+      },
+      { rootMargin: "-45% 0px -50% 0px" }
+    );
+
+    const observeAll = () => {
+      document.querySelectorAll("section[id]").forEach((s) => {
+        if (!observed.has(s)) {
+          observed.add(s);
+          sectionObserver.observe(s);
+        }
+      });
+    };
+
+    observeAll();
+    const mutationObserver = new MutationObserver(observeAll);
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      sectionObserver.disconnect();
+      mutationObserver.disconnect();
+    };
   }, []);
 
   return (
@@ -43,33 +71,34 @@ export default function Navbar() {
       }`}
     >
       <a href="#home" className="flex items-center gap-2 no-underline">
-        <span className="w-8 h-8 rounded-xl bg-ocean-600 flex items-center justify-center shadow-soft">
-          <GraduationCap size={16} strokeWidth={2.4} className="text-white" />
-        </span>
+        <img src={logo} alt="LightLearn" className="w-8 h-8 rounded-xl object-cover shadow-soft" />
         <span className="font-display text-[1.2rem] font-bold tracking-tight text-ink">
           LightLearn
         </span>
       </a>
 
       <ul className="hidden md:flex items-center gap-8 list-none">
-        {NAV_LINKS.map(({ label, href }) => (
-          <li key={label} className="relative">
-            <a
-              href={href}
-              className={`text-sm font-medium transition-colors duration-200 no-underline ${
-                active === href.replace("#", "") ? "text-ink" : "text-ink-faint hover:text-ink"
-              }`}
-            >
-              {label}
-            </a>
-            {active === href.replace("#", "") && (
-              <motion.span
-                layoutId="nav-underline"
-                className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-ocean-600 rounded-full"
-              />
-            )}
-          </li>
-        ))}
+        {NAV_LINKS.map(({ label, href }) => {
+          const id = href.replace("#", "");
+          return (
+            <li key={label} className="relative">
+              <a
+                href={href}
+                className={`text-sm font-medium transition-colors duration-200 no-underline rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-500/40 ${
+                  active === id ? "text-ink" : "text-ink-faint hover:text-ink"
+                }`}
+              >
+                {label}
+              </a>
+              {active === id && (
+                <motion.span
+                  layoutId="nav-underline"
+                  className="absolute -bottom-1.5 left-0 right-0 h-[2px] bg-ocean-600 rounded-full"
+                />
+              )}
+            </li>
+          );
+        })}
       </ul>
 
       <div className="hidden md:flex gap-3">
@@ -86,13 +115,17 @@ export default function Navbar() {
 
       <button
         onClick={() => setMobileOpen((o) => !o)}
-        className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-ink"
+        aria-label={mobileOpen ? "Close menu" : "Open menu"}
+        aria-expanded={mobileOpen}
+        aria-controls="mobile-nav"
+        className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-500/40"
       >
         {mobileOpen ? <X size={18} /> : <Menu size={18} />}
       </button>
 
       {mobileOpen && (
         <motion.div
+          id="mobile-nav"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           className="md:hidden absolute top-[72px] left-0 right-0 bg-white/85 backdrop-blur-xl border-b border-white/60 shadow-lift px-[5%] py-5 flex flex-col gap-4"

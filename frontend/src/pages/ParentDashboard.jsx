@@ -76,6 +76,7 @@ export default function ParentDashboard() {
   const child = children[activeChild] ?? null;
 
   const coursesPerChild = children.map((c) => ({ name: c.name, value: c.total_courses ?? 0 }));
+  const completionPerChild = children.map((c) => ({ name: c.name, value: c.completion_pct ?? 0 }));
   const totalCoursesAcrossChildren = children.reduce((sum, c) => sum + (c.total_courses ?? 0), 0);
   const totalEnrollmentsAcrossChildren = children.reduce((sum, c) => sum + (c.total_enrollments ?? 0), 0);
 
@@ -107,8 +108,17 @@ export default function ParentDashboard() {
           )}
 
           {children.length > 1 && (
-            <motion.div variants={fadeUp} initial="hidden" animate="show" custom={1.5}>
+            <motion.div
+              variants={fadeUp} initial="hidden" animate="show" custom={1.5}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
               <BarChartCard title="Courses per child" icon={BookOpen} data={coursesPerChild} color={SERIES_COLOR.ocean} />
+              <BarChartCard
+                title="Activity completion per child"
+                icon={ClipboardList}
+                data={completionPerChild}
+                color={SERIES_COLOR.success}
+              />
             </motion.div>
           )}
 

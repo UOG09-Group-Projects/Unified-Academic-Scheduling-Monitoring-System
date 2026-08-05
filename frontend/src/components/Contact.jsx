@@ -98,7 +98,7 @@ export default function Contact() {
                 Send a message
               </h3>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input name="firstName" label="First Name" placeholder="Amal" required />
                 <Input name="lastName" label="Last Name" placeholder="Perera" required />
               </div>

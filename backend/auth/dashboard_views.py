@@ -1,5 +1,6 @@
 import calendar
 import datetime
+import json
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Count
 from django.views.decorators.http import require_http_methods
@@ -12,7 +13,7 @@ from institutions.models import (
     Student, Educator,
     Batch, Guardian, StudentGuardian,
     Enrolment, Activity, Progress,
-    Complaint,
+    Complaint, NotificationPreference, ReportSchedule,
 )
 
 
@@ -307,6 +308,17 @@ def parent_dashboard(request):
             for e in Enrolment.objects.filter(student=student).select_related('course').order_by('-enrolled_date')
         ]
 
+        # Activity-completion % — same course scope (batch ∪ self-enrolled)
+        # and status-based aggregate student_dashboard uses for its own
+        # "completed_tasks" stat, computed per child for the comparison view.
+        course_ids = set(c['id'] for c in courses)
+        course_ids.update(Enrolment.objects.filter(student=student).values_list('course_id', flat=True))
+        total_tasks = Activity.objects.filter(course_id__in=course_ids).count()
+        completed_tasks = Progress.objects.filter(
+            student=student, status='completed', activity__course_id__in=course_ids
+        ).count()
+        completion_pct = round(completed_tasks / total_tasks * 100) if total_tasks else None
+
         children.append({
             'id':                student.id,
             'name':              student.name,
@@ -318,6 +330,7 @@ def parent_dashboard(request):
             'courses':           courses,
             'total_enrollments': len(enrollments),
             'enrollments':       enrollments,
+            'completion_pct':    completion_pct,
         })
 
     return JsonResponse({
@@ -335,11 +348,11 @@ def parent_dashboard(request):
 # GET /api/dashboard/parent/report/?student_id=X&year=YYYY&month=MM[&format=pdf]
 # ---------------------------------------------------------------------------
 
-def _render_parent_report_pdf(report):
+def _build_report_pdf_bytes(report):
     """Same reportlab-via-platypus approach as
-    institutions/views.py::MaintenanceReportView._render_pdf — a real
-    downloadable file (Content-Disposition: attachment), not a
-    window.print() dialog."""
+    institutions/views.py::MaintenanceReportView._render_pdf. Pure
+    dict-in/bytes-out — no request/response dependency, so the monthly
+    report email job (institutions/scheduler.py) can call this directly."""
     from io import BytesIO
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
@@ -439,46 +452,22 @@ def _render_parent_report_pdf(report):
     doc.build(elements)
     pdf_bytes = buffer.getvalue()
     buffer.close()
-    return HttpResponse(pdf_bytes, content_type='application/pdf')
+    return pdf_bytes
 
 
-@csrf_exempt
-@require_http_methods(['GET'])
-@jwt_required(roles=['PARENT'])
-def parent_monthly_report(request):
-    user = request.current_user
+def _render_parent_report_pdf(report):
+    """HTTP wrapper around _build_report_pdf_bytes — a real downloadable
+    file (Content-Disposition: attachment), not a window.print() dialog."""
+    return HttpResponse(_build_report_pdf_bytes(report), content_type='application/pdf')
 
-    try:
-        guardian = Guardian.objects.get(user_id=user.id)
-    except Guardian.DoesNotExist:
-        return JsonResponse({'error': 'Guardian profile not found.'}, status=404)
 
-    student_id = request.GET.get('student_id')
-    if not student_id:
-        return JsonResponse({'error': 'student_id is required.'}, status=400)
-
-    is_own_child = StudentGuardian.objects.filter(
-        guardian=guardian, student_id=student_id
-    ).exists()
-    if not is_own_child:
-        return JsonResponse({'error': 'Not found.'}, status=404)
-
-    try:
-        student = Student.objects.select_related('batch', 'institution').get(
-            id=student_id, is_deleted=False
-        )
-    except Student.DoesNotExist:
-        return JsonResponse({'error': 'Student not found.'}, status=404)
-
-    today = datetime.date.today()
-    try:
-        year  = int(request.GET.get('year', today.year))
-        month = int(request.GET.get('month', today.month))
-        if not (1 <= month <= 12):
-            raise ValueError
-    except ValueError:
-        return JsonResponse({'error': 'Invalid year or month.'}, status=400)
-
+def _build_parent_report(student, year, month, guardian):
+    """Assemble the monthly report dict for one child — pure function, no
+    request dependency, so both the HTTP view below and the scheduled
+    report-email job (institutions/scheduler.py) can call it directly.
+    `guardian` is passed in rather than looked up here, since a student can
+    have more than one guardian on record and the caller already knows
+    which one this report is for."""
     # Courses: batch-assigned + explicitly self-enrolled, deduplicated.
     course_ids = set()
     if student.batch:
@@ -490,9 +479,13 @@ def parent_monthly_report(request):
     )
     course_qs = Course.objects.filter(id__in=course_ids, is_deleted=False)
 
+    # A Progress row can exist with status='completed' but no value yet
+    # (not graded) — treat those the same as "not graded" rather than
+    # crashing float(None).
     progress_by_activity = {
         p.activity_id: float(p.value)
         for p in Progress.objects.filter(student=student)
+        if p.value is not None
     }
 
     courses_report = []
@@ -543,7 +536,7 @@ def parent_monthly_report(request):
         ).select_related('course').order_by('enrolled_date')
     ]
 
-    report = {
+    return {
         'guardian': {'id': guardian.id, 'name': guardian.name},
         'student': {
             'id':              student.id,
@@ -572,6 +565,46 @@ def parent_monthly_report(request):
         'generated_at': datetime.datetime.now().isoformat(),
     }
 
+
+@csrf_exempt
+@require_http_methods(['GET'])
+@jwt_required(roles=['PARENT'])
+def parent_monthly_report(request):
+    user = request.current_user
+
+    try:
+        guardian = Guardian.objects.get(user_id=user.id)
+    except Guardian.DoesNotExist:
+        return JsonResponse({'error': 'Guardian profile not found.'}, status=404)
+
+    student_id = request.GET.get('student_id')
+    if not student_id:
+        return JsonResponse({'error': 'student_id is required.'}, status=400)
+
+    is_own_child = StudentGuardian.objects.filter(
+        guardian=guardian, student_id=student_id
+    ).exists()
+    if not is_own_child:
+        return JsonResponse({'error': 'Not found.'}, status=404)
+
+    try:
+        student = Student.objects.select_related('batch', 'institution').get(
+            id=student_id, is_deleted=False
+        )
+    except Student.DoesNotExist:
+        return JsonResponse({'error': 'Student not found.'}, status=404)
+
+    today = datetime.date.today()
+    try:
+        year  = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month))
+        if not (1 <= month <= 12):
+            raise ValueError
+    except ValueError:
+        return JsonResponse({'error': 'Invalid year or month.'}, status=400)
+
+    report = _build_parent_report(student, year, month, guardian)
+
     # Deliberately named "format", not "type" — this view is a plain Django
     # function view (no DRF content negotiation on it) so there's no
     # reserved-param collision to dodge, unlike MaintenanceReportView.
@@ -582,3 +615,60 @@ def parent_monthly_report(request):
         return response
 
     return JsonResponse(report)
+
+
+# ---------------------------------------------------------------------------
+# Parent preferences — notification opt-outs + monthly report email schedule
+# GET/PATCH /api/dashboard/parent/preferences/
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@require_http_methods(['GET', 'PATCH'])
+@jwt_required(roles=['PARENT'])
+def parent_preferences(request):
+    user = request.current_user
+
+    try:
+        guardian = Guardian.objects.get(user_id=user.id)
+    except Guardian.DoesNotExist:
+        return JsonResponse({'error': 'Guardian profile not found.'}, status=404)
+
+    prefs, _    = NotificationPreference.objects.get_or_create(user=user)
+    schedule, _ = ReportSchedule.objects.get_or_create(guardian=guardian)
+
+    if request.method == 'PATCH':
+        try:
+            body = json.loads(request.body)
+        except ValueError:
+            return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+        np_data = body.get('notification_preferences') or {}
+        if 'activity_updates' in np_data:
+            prefs.activity_updates = bool(np_data['activity_updates'])
+        if 'complaint_replies' in np_data:
+            prefs.complaint_replies = bool(np_data['complaint_replies'])
+        prefs.save()
+
+        rs_data = body.get('report_schedule') or {}
+        if 'enabled' in rs_data:
+            schedule.enabled = bool(rs_data['enabled'])
+        if 'day_of_month' in rs_data:
+            try:
+                day = int(rs_data['day_of_month'])
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'day_of_month must be a number.'}, status=400)
+            if not (1 <= day <= 28):
+                return JsonResponse({'error': 'day_of_month must be between 1 and 28.'}, status=400)
+            schedule.day_of_month = day
+        schedule.save()
+
+    return JsonResponse({
+        'notification_preferences': {
+            'activity_updates':  prefs.activity_updates,
+            'complaint_replies': prefs.complaint_replies,
+        },
+        'report_schedule': {
+            'enabled':      schedule.enabled,
+            'day_of_month': schedule.day_of_month,
+        },
+    })
