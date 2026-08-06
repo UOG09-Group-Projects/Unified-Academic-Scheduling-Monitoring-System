@@ -1,8 +1,9 @@
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
 export default function Modal({ open, onClose, title, children, width = 'max-w-lg', footer }) {
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -39,7 +40,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
               </div>
             )}
 
-            <div className="overflow-y-auto scroll-thin px-6 py-5">{children}</div>
+            <div className="overflow-y-auto scroll-thin px-6 py-5 flex-1 min-h-0">{children}</div>
 
             {footer && (
               <div className="px-6 py-4 border-t border-ink/[0.06] shrink-0 flex justify-end gap-3">
@@ -49,6 +50,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

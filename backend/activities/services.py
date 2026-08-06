@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.utils import timezone
 from institutions.models import (
-    Activity, Allocation, Student, StudentGuardian, Progress, Enrolment, CourseBatch, DueSoonReminder,
+    Activity, Allocation, Event, Student, StudentGuardian, Progress, Enrolment, CourseBatch, DueSoonReminder,
 )
 from institutions.notification_service import NotificationService
 from events.broadcast import broadcast_calendar_update
@@ -82,6 +82,51 @@ def _course_students(course_id):
     return Student.objects.filter(id__in=ids, is_deleted=False).order_by('name')
 
 
+def _courses_taken_by_course_students(course_id):
+    """Every course id that any student enrolled in `course_id` is taking —
+    not just `course_id` itself. Used for the workload heatmap: a student's
+    "busy day" comes from all of their deadlines, not only the ones in the
+    course an educator happens to be looking at."""
+    course_ids = set()
+    for student in _course_students(course_id):
+        course_ids.update(_student_course_ids(student))
+    return course_ids
+
+
+def course_workload(user, course_id, year, month):
+    """
+    Per-day {assignment, exam} counts for `year`/`month`, aggregated across
+    every course taken by any student enrolled in `course_id` — lets an
+    educator see which days their students are already loaded up with
+    deadlines (from any course) before picking a due date. Educator-only,
+    own courses only.
+    """
+    if user.role.name.upper() != 'EDUCATOR' or int(course_id) not in _educator_course_ids(user):
+        raise ValueError('You can only view workload for your own courses.')
+
+    year, month = int(year), int(month)
+    course_ids = _courses_taken_by_course_students(course_id)
+    counts = {}
+
+    if course_ids:
+        assignments = Activity.objects.filter(course_id__in=course_ids).exclude(due_date='')
+        for a in assignments:
+            try:
+                d = date.fromisoformat(a.due_date)
+            except ValueError:
+                continue
+            if d.year != year or d.month != month:
+                continue
+            counts.setdefault(a.due_date, {'assignment': 0, 'exam': 0})['assignment'] += 1
+
+        exams = Event.objects.filter(course_id__in=course_ids, event_type='exam', start__year=year, start__month=month)
+        for e in exams:
+            key = e.start.date().isoformat()
+            counts.setdefault(key, {'assignment': 0, 'exam': 0})['exam'] += 1
+
+    return counts
+
+
 def _notify_activity_created(activity, course):
     """Fan out a "new activity" notification to every enrolled student and
     their guardians. Each group gets a link to the page relevant to them."""
@@ -95,6 +140,8 @@ def _notify_activity_created(activity, course):
     guardian_users = {u for u in guardian_users if NotificationService.wants(u, 'activity_updates')}
 
     due_suffix = f' · due {activity.due_date}' if activity.due_date else ''
+    if activity.due_date and activity.due_time:
+        due_suffix += f' {activity.due_time}'
 
     NotificationService.notify_many(
         student_users,
@@ -180,6 +227,10 @@ class ActivityService:
         return _course_students(course_id)
 
     @staticmethod
+    def workload(user, course_id, year, month):
+        return course_workload(user, course_id, year, month)
+
+    @staticmethod
     @transaction.atomic
     def create(user, data):
         course_id = data.get('course_id')
@@ -194,6 +245,7 @@ class ActivityService:
             name=name,
             course_id=course_id,
             due_date=data.get('due_date', ''),
+            due_time=data.get('due_time', ''),
             description=data.get('description', ''),
             optional=bool(data.get('optional', False)),
         )
@@ -219,6 +271,8 @@ class ActivityService:
             activity.name = name
         if 'due_date' in data:
             activity.due_date = data.get('due_date', '')
+        if 'due_time' in data:
+            activity.due_time = data.get('due_time', '')
         if 'description' in data:
             activity.description = data.get('description', '')
         if 'optional' in data:

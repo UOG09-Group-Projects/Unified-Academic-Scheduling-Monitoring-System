@@ -183,7 +183,7 @@ const InstitutionPage = () => {
         <PageHeader
           title="Institution management"
           subtitle="Institutes registered on the platform and their owners"
-          actions={canManage && (
+          actions={isSuperAdmin && (
             <Button variant="brand" size="md" icon={Plus} onClick={openCreate}>
               Add institution
             </Button>

@@ -5,7 +5,7 @@
 export function activityToPseudoEvent(activity) {
   if (!activity.due_date) return null;
 
-  const start = new Date(`${activity.due_date}T00:00:00`);
+  const start = new Date(`${activity.due_date}T${activity.due_time || '00:00'}:00`);
   if (Number.isNaN(start.getTime())) return null;
 
   return {
@@ -15,7 +15,7 @@ export function activityToPseudoEvent(activity) {
     event_type: 'assignment',
     start: start.toISOString(),
     end: null,
-    all_day: true,
+    all_day: !activity.due_time,
     course: { id: activity.course_id, name: activity.course_name },
     created_by: null,
     can_edit: false,

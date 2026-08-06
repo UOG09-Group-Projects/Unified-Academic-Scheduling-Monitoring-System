@@ -104,7 +104,9 @@ export default function EducatorCourseActivities({ courseId, defaultOpen = false
                           {a.name}
                           {a.optional && <Badge tone="neutral">Optional</Badge>}
                         </p>
-                        {a.due_date && <p className="text-xs text-ink-faint">Due {a.due_date}</p>}
+                        {a.due_date && (
+                          <p className="text-xs text-ink-faint">Due {a.due_date}{a.due_time && ` at ${a.due_time}`}</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => setProgressActivity(a)} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-faint hover:text-brand-700 hover:bg-brand-50 transition-colors" title="Set progress">
@@ -132,6 +134,7 @@ export default function EducatorCourseActivities({ courseId, defaultOpen = false
         onSubmit={handleSubmit}
         initial={editing}
         saving={saving}
+        courseId={courseId}
       />
 
       <SetProgressModal

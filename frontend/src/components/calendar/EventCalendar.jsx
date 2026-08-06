@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Plus, Pencil, Lock, CalendarDays, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Pencil, Lock, CalendarDays, AlertTriangle, RefreshCw } from 'lucide-react';
 import calendarService from '../../services/calendarService';
 import activityService from '../../services/activityService';
 import usePolling from '../../hooks/usePolling';
@@ -22,6 +22,7 @@ const MONTHS = [
 ];
 
 const POLL_MS = 9000;
+const EVENT_TYPES = Object.keys(TYPE_COLOR);
 
 export default function EventCalendar({ role }) {
   const now = new Date();
@@ -41,6 +42,18 @@ export default function EventCalendar({ role }) {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  // Empty set = no filter applied, so every event type is shown. Selecting
+  // one or more chips narrows the calendar down to just those types.
+  const [activeTypes, setActiveTypes] = useState(() => new Set());
+
+  const toggleType = (type) => {
+    setActiveTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
 
   const toast = useToast();
   const navigate = useNavigate();
@@ -87,14 +100,21 @@ export default function EventCalendar({ role }) {
     return [...events, ...monthActivities];
   }, [events, activities, year, month]);
 
+  const filteredEvents = useMemo(
+    () => (activeTypes.size === 0
+      ? mergedEvents
+      : mergedEvents.filter((ev) => activeTypes.has(ev.event_type))),
+    [mergedEvents, activeTypes]
+  );
+
   const byDate = useMemo(() => {
     const map = {};
-    for (const ev of mergedEvents) {
+    for (const ev of filteredEvents) {
       const d = new Date(ev.start).getDate();
       (map[d] ||= []).push(ev);
     }
     return map;
-  }, [mergedEvents]);
+  }, [filteredEvents]);
 
   const conflictIds = useMemo(() => findOverlaps(mergedEvents).conflictIds, [mergedEvents]);
 
@@ -180,7 +200,7 @@ export default function EventCalendar({ role }) {
   return (
     <div className="rounded-2xl border border-ink/[0.06] bg-surface overflow-hidden shadow-soft">
       {/* Header */}
-      <div className="flex justify-between items-center px-5 py-4 border-b border-ink/[0.06]">
+      <div className="flex flex-wrap justify-between items-center gap-3 px-5 py-4 border-b border-ink/[0.06]">
         <div className="flex items-center gap-2">
           <CalendarDays size={16} className="text-brand-600" />
           <p className="text-xs uppercase tracking-widest text-ink-faint font-semibold">
@@ -206,9 +226,41 @@ export default function EventCalendar({ role }) {
           </button>
         </div>
 
-        <Button variant="brand" size="sm" icon={Plus} onClick={() => openCreate()}>
-          New event
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            {EVENT_TYPES.map((t) => {
+              const active = activeTypes.has(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => toggleType(t)}
+                  aria-pressed={active}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] capitalize transition-colors ${
+                    active
+                      ? 'border-brand-600/40 bg-brand-600/10 text-ink'
+                      : 'border-ink/10 text-ink-faint hover:bg-ink/[0.04]'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: TYPE_COLOR[t] }} />
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+
+          <Button variant="brand" size="sm" icon={Plus} onClick={() => openCreate()}>
+            New event
+          </Button>
+          <button
+            type="button"
+            onClick={fetchEvents}
+            title="Refresh"
+            className="w-7 h-7 rounded-lg border border-ink/10 flex items-center justify-center text-ink-soft hover:bg-ink/[0.04] transition-colors"
+          >
+            <RefreshCw size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="p-5">
@@ -347,15 +399,6 @@ export default function EventCalendar({ role }) {
           )}
         </AnimatePresence>
 
-        {/* Legend */}
-        <div className="mt-4 pt-3 border-t border-ink/[0.06] flex gap-4 flex-wrap">
-          {Object.entries(TYPE_COLOR).map(([k, c]) => (
-            <div key={k} className="flex items-center gap-1.5 text-[11px] text-ink-faint capitalize">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c }} />
-              {k}
-            </div>
-          ))}
-        </div>
       </div>
 
       <EventFormModal

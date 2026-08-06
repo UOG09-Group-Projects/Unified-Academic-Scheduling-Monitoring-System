@@ -13,6 +13,7 @@ def _activity_json(a):
         'id': a.id,
         'name': a.name,
         'due_date': a.due_date,
+        'due_time': a.due_time,
         'description': a.description,
         'optional': a.optional,
         'course_id': a.course_id,
@@ -88,6 +89,27 @@ class CourseRosterView(JWTView):
             {'id': s.id, 'name': s.name, 'registration_no': s.registration_no}
             for s in students
         ])
+
+
+class CourseWorkloadView(JWTView):
+    """GET /api/activities/course-workload/?course_id=X&year=Y&month=M
+    Per-day assignment/exam counts across every course this course's
+    students are taking, for the busy-day heatmap on the activity form."""
+    allowed_roles = ['EDUCATOR']
+
+    def get(self, request):
+        course_id = request.query_params.get('course_id')
+        year = request.query_params.get('year')
+        month = request.query_params.get('month')
+        if not course_id or not year or not month:
+            return Response({'error': 'course_id, year and month are required.'}, status=400)
+
+        try:
+            counts = ActivityService.workload(request.current_user, course_id, year, month)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
+
+        return Response(counts)
 
 
 class ActivityDetailView(JWTView):

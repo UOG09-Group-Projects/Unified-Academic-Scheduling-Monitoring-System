@@ -102,6 +102,8 @@ export default function ManagerDashboard() {
       <PageHeader
         title="Manager dashboard"
         subtitle={`Operational overview of ${summary.institution_name}`}
+        icon={Layers}
+        tone="ocean"
       />
 
       <StatGrid custom={0}>

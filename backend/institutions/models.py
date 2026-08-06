@@ -401,6 +401,7 @@ class Activity(models.Model):
         Course, on_delete=models.CASCADE, related_name='activities'
     )
     due_date    = models.CharField(max_length=45, blank=True)
+    due_time    = models.CharField(max_length=5, blank=True)
     description = models.CharField(max_length=45, blank=True)
     optional    = models.BooleanField(default=False)
 

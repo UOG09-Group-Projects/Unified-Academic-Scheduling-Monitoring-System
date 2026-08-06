@@ -10,6 +10,9 @@ const activityService = {
   listRoster: (courseId) =>
     api.get('/activities/course-roster/', { params: { course_id: courseId } }).then((r) => r.data),
 
+  courseWorkload: (courseId, year, month) =>
+    api.get('/activities/course-workload/', { params: { course_id: courseId, year, month } }).then((r) => r.data),
+
   create: (payload) =>
     api.post('/activities/', payload).then((r) => r.data),
 

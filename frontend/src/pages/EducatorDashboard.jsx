@@ -64,7 +64,12 @@ export default function EducatorDashboard() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto">
-      <PageHeader title="Educator dashboard" subtitle="Your courses, batches and schedule" />
+      <PageHeader
+        title="Educator dashboard"
+        subtitle="Your courses, batches and schedule"
+        icon={GraduationCap}
+        tone="success"
+      />
 
       <StatGrid custom={0} className="mb-10">
         <StatCard label="My Courses" value={data.summary.total_courses} tone="ocean" icon={BookOpen} />

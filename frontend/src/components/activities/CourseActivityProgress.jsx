@@ -12,8 +12,9 @@ const STATUSES = [
   { key: 'completed',   label: 'Completed',    icon: CheckCircle2, active: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30' },
 ];
 
-function isOverdue(dueDate, status) {
+function isOverdue(dueDate, dueTime, status) {
   if (!dueDate || status === 'completed') return false;
+  if (dueTime) return new Date(`${dueDate}T${dueTime}:00`).getTime() < Date.now();
   return new Date(`${dueDate}T00:00:00`).getTime() < new Date().setHours(0, 0, 0, 0);
 }
 
@@ -60,7 +61,7 @@ export default function CourseActivityProgress({ courseId, studentId, progressRe
         const value = record?.value;
         const status = record?.status ?? 'not_started';
         const pct = value != null ? Math.round(value * 100) : null;
-        const overdue = isOverdue(a.due_date, status);
+        const overdue = isOverdue(a.due_date, a.due_time, status);
 
         return (
           <div key={a.id} className="rounded-xl border border-ink/[0.06] p-3 hover:bg-ink/[0.02] transition-colors">
@@ -71,6 +72,7 @@ export default function CourseActivityProgress({ courseId, studentId, progressRe
                   <p className={`text-[11px] mt-0.5 ${overdue ? 'text-danger font-medium' : 'text-ink-faint'}`}>
                     {overdue ? 'Overdue · due ' : 'Due '}
                     {new Date(`${a.due_date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    {a.due_time && ` at ${a.due_time}`}
                   </p>
                 )}
               </div>

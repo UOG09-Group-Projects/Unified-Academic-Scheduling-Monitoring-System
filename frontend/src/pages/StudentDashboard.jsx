@@ -2,7 +2,7 @@
 import { useReducer, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, GraduationCap } from 'lucide-react';
 
 import StudentProfileCard from '../components/student/StudentProfileCard';
 import StudentStatCards from '../components/student/StudentStatCards';
@@ -103,7 +103,12 @@ export default function StudentDashboard() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto">
-      <PageHeader title="Student dashboard" subtitle="Your learning progress and course activity" />
+      <PageHeader
+        title="Student dashboard"
+        subtitle="Your learning progress and course activity"
+        icon={GraduationCap}
+        tone="brand"
+      />
 
       <motion.div variants={fadeUp} initial="hidden" animate="show" custom={0} className="mb-10">
         <Card className="flex flex-col gap-4">

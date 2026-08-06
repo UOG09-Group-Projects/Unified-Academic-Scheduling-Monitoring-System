@@ -82,7 +82,12 @@ export default function ParentDashboard() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
-      <PageHeader title="Parent dashboard" subtitle={`Welcome, ${guardian?.name ?? ''}`} />
+      <PageHeader
+        title="Parent dashboard"
+        subtitle={`Welcome, ${guardian?.name ?? ''}`}
+        icon={Users}
+        tone="accent"
+      />
 
       <StatGrid custom={0}>
         <StatCard label="Children" value={total_children} tone="brand" icon={Users} />
