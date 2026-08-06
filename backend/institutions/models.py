@@ -396,17 +396,23 @@ class Enrolment(models.Model):
 
 
 class Activity(models.Model):
-    name        = models.CharField(max_length=50)
-    course      = models.ForeignKey(
+    TYPE_CHOICES = [
+        ('ASSIGNMENT', 'Assignment'),
+        ('EXAM',       'Exam'),
+    ]
+
+    name          = models.CharField(max_length=50)
+    course        = models.ForeignKey(
         Course, on_delete=models.CASCADE, related_name='activities'
     )
-    due_date    = models.CharField(max_length=45, blank=True)
-    due_time    = models.CharField(max_length=5, blank=True)
-    description = models.CharField(max_length=45, blank=True)
-    optional    = models.BooleanField(default=False)
+    activity_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='ASSIGNMENT')
+    due_date      = models.CharField(max_length=45, blank=True)
+    due_time      = models.CharField(max_length=5, blank=True)
+    description   = models.CharField(max_length=45, blank=True)
+    optional      = models.BooleanField(default=False)
 
     class Meta:
-        db_table = 'activities'             
+        db_table = 'activities'
 
     def __str__(self):
         return self.name

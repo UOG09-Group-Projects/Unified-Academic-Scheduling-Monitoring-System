@@ -102,6 +102,9 @@ export default function EducatorCourseActivities({ courseId, defaultOpen = false
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-ink truncate flex items-center gap-1.5">
                           {a.name}
+                          <Badge tone={a.activity_type === 'EXAM' ? 'danger' : 'warning'}>
+                            {a.activity_type === 'EXAM' ? 'Exam' : 'Assignment'}
+                          </Badge>
                           {a.optional && <Badge tone="neutral">Optional</Badge>}
                         </p>
                         {a.due_date && (

@@ -12,6 +12,7 @@ def _activity_json(a):
     return {
         'id': a.id,
         'name': a.name,
+        'activity_type': a.activity_type,
         'due_date': a.due_date,
         'due_time': a.due_time,
         'description': a.description,

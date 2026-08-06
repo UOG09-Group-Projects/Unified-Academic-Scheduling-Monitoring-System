@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
-import { Input, Textarea } from '../ui/Field';
+import { Input, Textarea, Select } from '../ui/Field';
 import CourseWorkloadHeatmap from './CourseWorkloadHeatmap';
 
 export default function ActivityFormModal({ open, onClose, onSubmit, initial, saving, courseId }) {
-  const [form, setForm] = useState({ name: '', due_date: '', due_time: '', description: '', optional: false });
+  const [form, setForm] = useState({ name: '', activity_type: 'ASSIGNMENT', due_date: '', due_time: '', description: '', optional: false });
 
   useEffect(() => {
     if (!open) return;
     setForm({
       name: initial?.name || '',
+      activity_type: initial?.activity_type || 'ASSIGNMENT',
       due_date: initial?.due_date || '',
       due_time: initial?.due_time || '',
       description: initial?.description || '',
@@ -50,6 +51,10 @@ export default function ActivityFormModal({ open, onClose, onSubmit, initial, sa
       >
         <div className="flex flex-col gap-4">
           <Input label="Name" required value={form.name} onChange={set('name')} placeholder="e.g. Assignment 1" />
+          <Select label="Type" value={form.activity_type} onChange={set('activity_type')}>
+            <option value="ASSIGNMENT">Assignment</option>
+            <option value="EXAM">Exam</option>
+          </Select>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Due date" type="date" value={form.due_date} onChange={set('due_date')} />
             <Input label="Due time (optional)" type="time" value={form.due_time} onChange={set('due_time')} />

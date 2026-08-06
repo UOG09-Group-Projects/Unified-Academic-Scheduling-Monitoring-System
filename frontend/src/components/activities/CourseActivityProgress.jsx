@@ -67,7 +67,12 @@ export default function CourseActivityProgress({ courseId, studentId, progressRe
           <div key={a.id} className="rounded-xl border border-ink/[0.06] p-3 hover:bg-ink/[0.02] transition-colors">
             <div className="flex items-start justify-between gap-3 mb-2.5">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-ink truncate">{a.name}</p>
+                <p className="text-sm font-medium text-ink truncate flex items-center gap-1.5">
+                  {a.name}
+                  <Badge tone={a.activity_type === 'EXAM' ? 'danger' : 'warning'} className="shrink-0">
+                    {a.activity_type === 'EXAM' ? 'Exam' : 'Assignment'}
+                  </Badge>
+                </p>
                 {a.due_date && (
                   <p className={`text-[11px] mt-0.5 ${overdue ? 'text-danger font-medium' : 'text-ink-faint'}`}>
                     {overdue ? 'Overdue · due ' : 'Due '}

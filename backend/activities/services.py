@@ -109,16 +109,19 @@ def course_workload(user, course_id, year, month):
     counts = {}
 
     if course_ids:
-        assignments = Activity.objects.filter(course_id__in=course_ids).exclude(due_date='')
-        for a in assignments:
+        activities = Activity.objects.filter(course_id__in=course_ids).exclude(due_date='')
+        for a in activities:
             try:
                 d = date.fromisoformat(a.due_date)
             except ValueError:
                 continue
             if d.year != year or d.month != month:
                 continue
-            counts.setdefault(a.due_date, {'assignment': 0, 'exam': 0})['assignment'] += 1
+            bucket = 'exam' if a.activity_type == 'EXAM' else 'assignment'
+            counts.setdefault(a.due_date, {'assignment': 0, 'exam': 0})[bucket] += 1
 
+        # Calendar-scheduled exam Events count too — an educator may schedule
+        # an exam session directly on the calendar instead of as an Activity.
         exams = Event.objects.filter(course_id__in=course_ids, event_type='exam', start__year=year, start__month=month)
         for e in exams:
             key = e.start.date().isoformat()
@@ -241,9 +244,14 @@ class ActivityService:
         if not name:
             raise ValueError('Activity name is required.')
 
+        activity_type = data.get('activity_type', 'ASSIGNMENT')
+        if activity_type not in dict(Activity.TYPE_CHOICES):
+            raise ValueError('Invalid activity_type.')
+
         activity = Activity.objects.create(
             name=name,
             course_id=course_id,
+            activity_type=activity_type,
             due_date=data.get('due_date', ''),
             due_time=data.get('due_time', ''),
             description=data.get('description', ''),
@@ -269,6 +277,11 @@ class ActivityService:
             if not name:
                 raise ValueError('Activity name is required.')
             activity.name = name
+        if 'activity_type' in data:
+            activity_type = data.get('activity_type')
+            if activity_type not in dict(Activity.TYPE_CHOICES):
+                raise ValueError('Invalid activity_type.')
+            activity.activity_type = activity_type
         if 'due_date' in data:
             activity.due_date = data.get('due_date', '')
         if 'due_time' in data:
