@@ -1,54 +1,58 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { usePermissions } from './auth/PermissionsContext';
 import MaintenancePage from './pages/MaintenancePage';
 
-import Institution from './pages/Institution';
-import BatchManagement from "./pages/BatchManagement";
-import EducatorManagement from './pages/EducatorManagement';
-import Course from './pages/Course';
-import StudentPage from './pages/StudentPage';
+// Every route below is code-split via React.lazy — each page ships as its
+// own chunk, downloaded on first visit instead of all being bundled into
+// one multi-megabyte file loaded up front just to show the login screen.
+const Institution = lazy(() => import('./pages/Institution'));
+const BatchManagement = lazy(() => import('./pages/BatchManagement'));
+const EducatorManagement = lazy(() => import('./pages/EducatorManagement'));
+const Course = lazy(() => import('./pages/Course'));
+const StudentPage = lazy(() => import('./pages/StudentPage'));
 
-import LoginPage from './pages/LoginPage';
-import StudentSignupPage from './pages/StudentSignupPage';
-import VerifyOtpPage from './pages/VerifyOtpPage';
-import RegisterInstitutionPage from './pages/RegisterInstitutionPage';
-import ForgotPasswordPage from './auth/ForgotPasswordPage';
-import ResetPasswordPage from './auth/ResetPasswordPage';
-import VerifyEmailPage from './auth/VerifyEmailPage';
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const StudentSignupPage = lazy(() => import('./pages/StudentSignupPage'));
+const VerifyOtpPage = lazy(() => import('./pages/VerifyOtpPage'));
+const RegisterInstitutionPage = lazy(() => import('./pages/RegisterInstitutionPage'));
+const ForgotPasswordPage = lazy(() => import('./auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./auth/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('./auth/VerifyEmailPage'));
 
-import ManagerDashboard from './pages/ManagerDashboard';
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
-import EducatorDashboard from './pages/EducatorDashboard';
-import StudentDashboard from './pages/StudentDashboard';
-import StudentProgress from './pages/StudentProgress';
-import StudentCourses from './pages/StudentCourses';
-import StudentWorkload from './pages/StudentWorkload';
-import BatchChat from './pages/BatchChat';
-import DirectMessages from './pages/DirectMessages';
-import TimetablePage from './pages/TimetablePage';
-import CalendarPage from './pages/CalendarPage';
-import EducatorActivities from './pages/EducatorActivities';
-import ParentDashboard from './pages/ParentDashboard';
-import DashboardLayout from './layouts/DashboardLayout';
-import OwnerDashboard from "./pages/OwnerDashboard";
-import Institutions from "./pages/superadmin/Institutions";
-import Profile from "./pages/superadmin/Profile";
-import Settings from "./pages/superadmin/Settings";
-import ManagerManagement from './pages/ManagerManagement';
-import Home from './pages/Home';
-import RolesPermissions from './pages/RolesPermissions';
-import UserProfile from './pages/UserProfile';
-import HelpPage from './pages/HelpPage';
-import Messages from './pages/superadmin/Messages';
-import ManagerComplaints from './pages/manager/Complaints';
-import ParentPreferences from './pages/parent/Preferences';
-import Maintenance from './pages/superadmin/Maintenance';
-import OwnerMaintenance from './pages/owner/Maintenance';
-import OwnerUsers from './pages/owner/Users';
-import Analytics from './pages/superadmin/Analytics';
-import SuperAdminRoles from './pages/superadmin/Roles';
-import Notifications from './pages/Notifications';
-import Announcements from './pages/Announcements';
+const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
+const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
+const EducatorDashboard = lazy(() => import('./pages/EducatorDashboard'));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentProgress = lazy(() => import('./pages/StudentProgress'));
+const StudentCourses = lazy(() => import('./pages/StudentCourses'));
+const StudentWorkload = lazy(() => import('./pages/StudentWorkload'));
+const BatchChat = lazy(() => import('./pages/BatchChat'));
+const DirectMessages = lazy(() => import('./pages/DirectMessages'));
+const TimetablePage = lazy(() => import('./pages/TimetablePage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
+const EducatorActivities = lazy(() => import('./pages/EducatorActivities'));
+const ParentDashboard = lazy(() => import('./pages/ParentDashboard'));
+const DashboardLayout = lazy(() => import('./layouts/DashboardLayout'));
+const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard'));
+const Institutions = lazy(() => import('./pages/superadmin/Institutions'));
+const Profile = lazy(() => import('./pages/superadmin/Profile'));
+const Settings = lazy(() => import('./pages/superadmin/Settings'));
+const ManagerManagement = lazy(() => import('./pages/ManagerManagement'));
+const Home = lazy(() => import('./pages/Home'));
+const RolesPermissions = lazy(() => import('./pages/RolesPermissions'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
+const Messages = lazy(() => import('./pages/superadmin/Messages'));
+const ManagerComplaints = lazy(() => import('./pages/manager/Complaints'));
+const ParentPreferences = lazy(() => import('./pages/parent/Preferences'));
+const Maintenance = lazy(() => import('./pages/superadmin/Maintenance'));
+const OwnerMaintenance = lazy(() => import('./pages/owner/Maintenance'));
+const OwnerUsers = lazy(() => import('./pages/owner/Users'));
+const Analytics = lazy(() => import('./pages/superadmin/Analytics'));
+const SuperAdminRoles = lazy(() => import('./pages/superadmin/Roles'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Announcements = lazy(() => import('./pages/Announcements'));
 
 
 
@@ -67,6 +71,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Suspense fallback={null}>
       <Routes>
 
         {/* PUBLIC ROUTES */}
@@ -83,19 +88,19 @@ function App() {
         {/* DASHBOARD LAYOUT ROUTES */}
         <Route element={<DashboardLayout />}>
 
-          <Route 
-            path="/dashboard/super-admin" 
-            element={<SuperAdminDashboard />} 
+          <Route
+            path="/dashboard/super-admin"
+            element={<SuperAdminDashboard />}
           />
 
-          <Route 
-            path="/dashboard/manager" 
-            element={<ManagerDashboard />} 
+          <Route
+            path="/dashboard/manager"
+            element={<ManagerDashboard />}
           />
 
-          <Route 
-            path="/dashboard/educator" 
-            element={<EducatorDashboard />} 
+          <Route
+            path="/dashboard/educator"
+            element={<EducatorDashboard />}
           />
 
           <Route
@@ -120,57 +125,57 @@ function App() {
 
           <Route path="/dashboard/owner" element={<OwnerDashboard />} />
 
-          <Route 
-            path="/dashboard/parent" 
-            element={<ParentDashboard />} 
+          <Route
+            path="/dashboard/parent"
+            element={<ParentDashboard />}
           />
 
-          <Route 
-            path="/institutions" 
-            element={<Institution />} 
+          <Route
+            path="/institutions"
+            element={<Institution />}
           />
 
-          <Route 
-            path="/courses" 
-            element={<Course />} 
+          <Route
+            path="/courses"
+            element={<Course />}
           />
 
-          <Route 
-            path="/educators" 
-            element={<EducatorManagement />} 
+          <Route
+            path="/educators"
+            element={<EducatorManagement />}
           />
 
-          <Route 
-            path="/students" 
-            element={<StudentPage />} 
+          <Route
+            path="/students"
+            element={<StudentPage />}
           />
 
-          <Route 
-            path="/batches" 
-            element={<BatchManagement />} 
+          <Route
+            path="/batches"
+            element={<BatchManagement />}
           />
 
-          <Route 
-            path="/managers" 
-            element={<ManagerManagement />} 
+          <Route
+            path="/managers"
+            element={<ManagerManagement />}
           />
 
-          <Route 
-            path="/superadmin/institutions" 
-            element={<Institutions />} 
+          <Route
+            path="/superadmin/institutions"
+            element={<Institutions />}
           />
 
-          <Route 
-            path="/superadmin/profile" 
-            element={<Profile />} 
+          <Route
+            path="/superadmin/profile"
+            element={<Profile />}
           />
 
-          <Route 
-            path="/superadmin/settings" 
-            element={<Settings />} 
+          <Route
+            path="/superadmin/settings"
+            element={<Settings />}
           />
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={<UserProfile />} />
 
           <Route path="/roles" element={<RolesPermissions />} />
@@ -208,6 +213,7 @@ function App() {
         </Route>
 
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
